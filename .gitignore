@@ -19,3 +19,6 @@ Wiselib.files
 Wiselib.includes
 .c9revisions/
 *~
+.cproject
+.project
+.settings
