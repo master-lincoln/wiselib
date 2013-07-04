@@ -25,7 +25,6 @@
 #include "util/delegates/delegate.hpp"
 #include "util/pstl/vector_static.h"
 #include "util/pstl/static_string.h"
-#include "util/pstl/string_dynamic.h"
 #include "util/pstl/list_static.h"
 
 #define COAP_SERVICE_TEMPLATE_PREFIX	template<typename OsModel_P, \
