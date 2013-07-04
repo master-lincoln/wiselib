@@ -1,0 +1,17 @@
+
+WISELIB_PATH=/home/wiselib/wiselib
+
+WISELIB_STABLE=$(WISELIB_PATH)/wiselib.stable
+WISELIB_TESTING=$(WISELIB_PATH)/wiselib.testing
+
+CXX=g++
+LD=ld
+CXXFLAGS+=-I$(WISELIB_STABLE) -I$(WISELIB_TESTING) -lpthread -DDEBUG_COAPRADIO_PC -Os
+LDFLAGS+=
+
+$(TARGET): $(SOURCES)
+	$(CXX) $(CXXFLAGS) $< -o $@
+
+clean:
+	find . -executable -type f -delete
+	
