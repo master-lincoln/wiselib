@@ -53,6 +53,8 @@ static const uint8_t COAP_MAX_RETRANSMIT = 4;
 // Time before an ACK is sent. This is to give the application a chance to send a piggybacked response
 static const uint16_t COAP_ACK_GRACE_PERIOD = COAP_RESPONSE_TIMEOUT / 4;
 
+static const wiselib::StaticString COAP_RESOURCE_DISCOVERY_PATH = ".well-known/core";
+
 enum CoapType
 {
 	COAP_MSG_TYPE_CON = 0,

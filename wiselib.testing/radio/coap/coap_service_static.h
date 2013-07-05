@@ -428,7 +428,8 @@ template<typename OsModel_P,
 		coap_packet_t* reply( ReceivedMessage& req_msg,
 				uint8_t* payload,
 				size_t payload_length,
-				CoapCode code = COAP_CODE_CONTENT );
+				CoapCode code = COAP_CODE_CONTENT,
+				coap_packet_t reply = coap_packet_t());
 
 	private:
 #ifdef BOOST_TEST_DECL
@@ -630,6 +631,8 @@ template<typename OsModel_P,
 		void error_response( int error, ReceivedMessage& message );
 
 		void receive_coap(ReceivedMessage& message);
+
+		void resource_discovery_callback(ReceivedMessage& message);
 
 		int path_cmp( const string_t &lhs, const string_t &rhs);
 
@@ -900,6 +903,37 @@ template<typename OsModel_P,
 	}
 
 	COAP_SERVICE_TEMPLATE_PREFIX
+	void COAP_SERVICE_T::resource_discovery_callback(ReceivedMessage& message)
+	{
+
+		string_t res = string_t();
+		bool first = true;
+		for ( unsigned int i = 0; i < resources_.size(); ++i )
+		{
+			CoapResource curr = resources_.at(i);
+			if ( curr != CoapResource() && curr.resource_path() != COAP_RESOURCE_DISCOVERY_PATH)
+			{
+				if (!first) {
+					res.append(",");
+				}
+				first = false;
+				string_t path = curr.resource_path();
+				// TODO resource links in RFC6690 format including meta info
+				// TODO resource discovery for sub-resources
+				res.append("</");
+				res.append(path);
+				res.append(">");
+			}
+		}
+
+		coap_packet_t packet;
+		// set content_type to "application/link-format"
+		packet.set_option(COAP_OPT_CONTENT_TYPE, 40);
+
+		reply(message, (uint8_t*) res.c_str(), res.length(), COAP_CODE_CONTENT, packet);
+	}
+
+	COAP_SERVICE_TEMPLATE_PREFIX
 	int COAP_SERVICE_T::unreg_resource_callback( int idx )
 	{
 		resources_.at(idx) = CoapResource();
@@ -1007,11 +1041,11 @@ template<typename OsModel_P,
 	coap_packet_t_ * COAP_SERVICE_T::reply(ReceivedMessage &req_msg,
 				uint8_t* payload,
 				size_t payload_length,
-				CoapCode code )
+				CoapCode code,
+				coap_packet_t reply)
 	{
 		coap_packet_t *sendstatus = NULL;
 		coap_packet_t & request = req_msg.message();
-		coap_packet_t reply;
 		OpaqueData token;
 		request.token( token );
 
@@ -1167,33 +1201,42 @@ template<typename OsModel_P,
 		// TODO: we're looking at the first path segment only, subresources should be handled by their parents
 		string_t request_res = message.message().uri_path();
 		bool resource_found = false;
-		for(size_t i = 0; i < resources_.size(); ++i )
-		{
-			if( resources_.at(i) != CoapResource() && resources_.at(i).callback() && resources_.at(i).callback().obj_ptr() != NULL )
+
+		// handle resource discovery at "/.well-known/core" path
+		if ( request_res == COAP_RESOURCE_DISCOVERY_PATH) {
+			resource_discovery_callback(message);
+			resource_found = true;
+		} else {
+
+			for(size_t i = 0; i < resources_.size(); ++i )
 			{
-				available_res = resources_.at(i).resource_path();
-				// in order to match a resource, the requested uri must match a resource, or it must be a sub-element of a resource,
-				// which means the next symbol in the request must be a slash
-				if( path_cmp( request_res, available_res ) == EQUAL
-				    || path_cmp( request_res, available_res ) == LHS_IS_SUBRESOURCE )
+				if( resources_.at(i) != CoapResource() && resources_.at(i).callback() && resources_.at(i).callback().obj_ptr() != NULL )
 				{
-					resources_.at(i).callback()( message );
-					resource_found = true;
+					available_res = resources_.at(i).resource_path();
+					// in order to match a resource, the requested uri must match a resource, or it must be a sub-element of a resource,
+					// which means the next symbol in the request must be a slash
+					if( path_cmp( request_res, available_res ) == EQUAL
+						|| path_cmp( request_res, available_res ) == LHS_IS_SUBRESOURCE)
+					{
+						resources_.at(i).callback()( message );
+						resource_found = true;
+					}
 				}
 			}
-		}
-		if( !resource_found )
-		{
-
-			char * error_description = NULL;
-			int len = 0;
-			if( human_readable_errors_ )
+			if( !resource_found )
 			{
-				char error_description_str[COAP_ERROR_STRING_LEN];
-				len = sprintf(error_description, "Resource %s not found.", request_res.c_str() );
-				error_description = error_description_str;
+
+				char * error_description = NULL;
+				int len = 0;
+				if( human_readable_errors_ )
+				{
+					char error_description_str[COAP_ERROR_STRING_LEN];
+					len = sprintf(error_description, "Resource %s not found.", request_res.c_str() );
+					error_description = error_description_str;
+				}
+				reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND );
 			}
-			reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND );
+
 		}
 	}
 
