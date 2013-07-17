@@ -6,6 +6,7 @@
 #include "external_interface/pc/pc_timer.h"
 
 #include "util/pstl/static_string.h"
+#include "util/debugging.h"
 #include "radio/coap/coap_packet_static.h"
 #include "radio/coap/coap_service_static.h"
 
@@ -13,6 +14,8 @@
 #include "ipv4_socket.h"
 #include "touppercase.h"
 #include "calculator.h"
+#include "number_generator.h"
+#include "obs_test.h"
 
 using namespace wiselib;
 
@@ -66,7 +69,7 @@ int main(int argc, char** argv) {
 
 	listen(coapsocket,5);
 
-	cout << "Listening port" << port << "\n";
+	cout << "Listening on port " << port << "\n";
 
 	UDP4Radio<Os> *udpradio = new UDP4Radio<Os>();
 
@@ -80,17 +83,24 @@ int main(int argc, char** argv) {
 
 	cradio_.enable_radio();
 
+	ObsTest<Os, coap_radio_t, wiselib::StaticString> obs = ObsTest<Os, coap_radio_t, wiselib::StaticString>("oi", cradio_);
+
 	ToUpperCase<coap_radio_t> uppercaser = ToUpperCase<coap_radio_t>();
 	uppercaser.init(cradio_);
 
 	Calculator<Os, coap_radio_t, wiselib::StaticString> calculator = Calculator<Os, coap_radio_t, wiselib::StaticString>();
 	calculator.init(cradio_);
 
+	NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString> generator = NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>();
+	generator.init(cradio_);
+
 	wiselib::StaticString to_upper_path = wiselib::StaticString("touppercase");
 	wiselib::StaticString calculator_path = wiselib::StaticString("calculator");
+	wiselib::StaticString generator_path = wiselib::StaticString("generator");
 
 	int to_upper_id = cradio_.reg_resource_callback< ToUpperCase<coap_radio_t>, &ToUpperCase<coap_radio_t>::receive_coap >( to_upper_path, &uppercaser );
 	int calc_id = cradio_.reg_resource_callback< Calculator<Os, coap_radio_t, wiselib::StaticString>, &Calculator<Os, coap_radio_t, wiselib::StaticString>::receive_coap >( calculator_path, &calculator );
+	int gen_id = cradio_.reg_resource_callback< NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>, &NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>::receive_coap >( generator_path, &generator );
 
 	udpradio->set_socket( coapsocket );
 
@@ -104,21 +114,24 @@ int main(int argc, char** argv) {
 
 		if (n < 0)
 		{
+			// error case
 			if( errno != EINTR )
 			{
 				cerr << "ERROR reading from socket, " << n << ", " << strerror(errno) << "\n";
 				exit(EXIT_FAILURE);
+			} else
+			{
+				//cerr << "ERROR signal interrupted reading from socket, " << n << ", " << strerror(errno) << "\n";
+				continue;
 			}
 		}
-		printf("received %i Bytes\n",n);
 
+
+		//debug_buffer<Os, 20, Os::Debug>(debug_, (UDP4Radio<Os>::block_data_t *) buffer, n);
 		IPv4Socket sender_ipv4( cli_addr.sin_addr.s_addr, cli_addr.sin_port );
 		size_t sender = udpradio->add_correspondent(sender_ipv4);
-		cout << "Correspondent index: " << sender << "\n";
 		udpradio->notify_receivers( sender, n, (UDP4Radio<Os>::block_data_t *) buffer );
 	}
 	
 	return 0;
 }
-
-

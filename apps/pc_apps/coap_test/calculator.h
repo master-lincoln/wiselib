@@ -1,10 +1,3 @@
-/*
- * calculator.h
- *
- *  Created on: Feb 23, 2012
- *      Author: wiselib
- */
-
 #ifndef CALCULATOR_H_
 #define CALCULATOR_H_
 
