@@ -6,11 +6,13 @@ WISELIB_TESTING=$(WISELIB_PATH)/wiselib.testing
 
 CXX=clang++
 LD=ld
-CXXFLAGS+=-I$(WISELIB_STABLE) -I$(WISELIB_TESTING) -lpthread -DDEBUG_COAPRADIO_PC -Os
-LDFLAGS+=
+CXXFLAGS+=-I$(WISELIB_STABLE) -I$(WISELIB_TESTING) -Os
+LDFLAGS+= -lpthread -lrt 
 
 $(TARGET): $(SOURCES)
-	$(CXX) $(CXXFLAGS) $< -o $@
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
 clean:
 	find . -executable -type f -delete
+
+all: clean $(TARGET)
