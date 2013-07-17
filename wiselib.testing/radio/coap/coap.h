@@ -81,6 +81,7 @@ enum CoapOptionNum
 	COAP_OPT_URI_PORT = 7,
 	COAP_OPT_LOCATION_QUERY = 8,
 	COAP_OPT_URI_PATH = 9,
+	COAP_OPT_OBSERVE = 10, // as in draft-ietf-core-observe-06
 	COAP_OPT_TOKEN = 11,
 	COAP_OPT_ACCEPT = 12,
 	COAP_OPT_IF_MATCH = 13,
@@ -102,6 +103,8 @@ static const uint16_t COAP_STRING_OPTS_MAXLEN = 270;
 static const uint16_t COAP_STRING_OPTS_MINLEN = 1;
 
 static const uint8_t COAP_DEFAULT_MAX_AGE = 60;
+
+static const uint8_t COAP_MAX_OBSERVERS = 30;
 
 // Finding the longest opaque option, out of the three opage options Etag, Token and IfMatch
 static const uint8_t COAP_OPT_MAXLEN_OPAQUE = COAP_OPT_MAXLEN_TOKEN;
@@ -174,7 +177,7 @@ static const uint8_t COAP_OPTION_FORMAT[COAP_OPTION_ARRAY_SIZE] =
 	COAP_FORMAT_UINT,			// 7: COAP_OPT_URI_PORT
 	COAP_FORMAT_STRING,			// 8: COAP_OPT_LOCATION_QUERY
 	COAP_FORMAT_STRING,			// 9: COAP_OPT_URI_PATH
-	COAP_FORMAT_UNKNOWN,		// 10: not in use
+	COAP_FORMAT_UINT,			// 10: COAP_OPT_OBSERVE
 	COAP_FORMAT_OPAQUE,			// 11: COAP_OPT_TOKEN
 	COAP_FORMAT_UINT,			// 12: COAP_OPT_ACCEPT
 	COAP_FORMAT_OPAQUE,			// 13: COAP_OPT_IF_MATCH
@@ -200,7 +203,7 @@ static const bool COAP_OPT_CAN_OCCUR_MULTIPLE[COAP_OPTION_ARRAY_SIZE] =
 	false,			// 7: COAP_OPT_URI_PORT
 	true,			// 8: COAP_OPT_LOCATION_QUERY
 	true,			// 9: COAP_OPT_URI_PATH
-	false,			// 10: not in use
+	false,			// 10: COAP_OPT_OBSERVE
 	false,			// 11: COAP_OPT_TOKEN
 	true,			// 12: COAP_OPT_ACCEPT
 	true,			// 13: COAP_OPT_IF_MATCH
