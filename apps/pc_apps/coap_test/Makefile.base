@@ -16,3 +16,6 @@ clean:
 	find . -executable -type f -delete
 
 all: clean $(TARGET)
+
+debug: LDFLAGS+= -g -DDEBUG
+debug: all
