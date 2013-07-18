@@ -42,7 +42,7 @@
 #define COAP_SERVICE_T	CoapServiceStatic<OsModel_P, Radio_P, Timer_P, Rand_P, String_T, preface_msg_id_, human_readable_errors_, coap_packet_t_, sent_list_size_, received_list_size_, resources_list_size_>
 
 #define TRACE(x) debug_->debug(x)
-#define DEBUG(x) debug_->debug(x)
+#define DBG_COAP(x) debug_->debug(x)
 #define INFO(x)  debug_->debug(x)
 #define WARN(x)  debug_->debug(x)
 
@@ -75,7 +75,7 @@ template<typename OsModel_P,
 	typename Rand_P = typename OsModel_P::Rand,
 	typename String_T = wiselib::StaticString,
 	bool preface_msg_id_ = false,
-	bool human_readable_errors_ = true,
+	bool human_readable_errors_ = false,
 	typename coap_packet_t_ = typename wiselib::CoapPacketStatic<OsModel_P, Radio_P, String_T>::coap_packet_t,
 	typename OsModel_P::size_t sent_list_size_ = COAPRADIO_SENT_LIST_SIZE,
 	typename OsModel_P::size_t received_list_size_ = COAPRADIO_RECEIVED_LIST_SIZE,
@@ -432,6 +432,7 @@ template<typename OsModel_P,
 		 * @param payload body of the reply
 		 * @param payload_length length of the body
 		 * @param code Code of the reply, COAP_CODE_CONTENT by default
+		 * @param reply Packet to set options on, empty packet by default
 		 */
 		coap_packet_t* reply( ReceivedMessage& req_msg,
 				uint8_t* payload,
@@ -452,6 +453,7 @@ template<typename OsModel_P,
 			SentMessage()
 			{
 				retransmit_count_ = 0;
+				retransmit_timeout_ = 0;
 				ack_received_ = false;
 				sender_callback_ = coapreceiver_delegate_t();
 				response_ = NULL;
@@ -850,10 +852,13 @@ template<typename OsModel_P,
 								if( human_readable_errors_ )
 								{
 									char error_description_str[COAP_ERROR_STRING_LEN];
-									len = sprintf( error_description, "Unknown Code %i", packet.code() );
+									len = sprintf( error_description_str, "Unknown Code %i", packet.code() );
 									error_description = error_description_str;
 								}
-								reply( received_message, (block_data_t*) error_description, len, COAP_CODE_NOT_IMPLEMENTED );
+
+								coap_packet_t repl;
+								repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
+								reply( received_message, (block_data_t*) error_description, len, COAP_CODE_NOT_IMPLEMENTED, repl );
 							}
 						}
 					}
@@ -1251,10 +1256,12 @@ template<typename OsModel_P,
 				if( human_readable_errors_ )
 				{
 					char error_description_str[COAP_ERROR_STRING_LEN];
-					len = sprintf(error_description, "Resource %s not found.", request_res.c_str() );
+					len = sprintf(error_description_str, "Resource \"%s\" not found.", request_res.c_str() );
 					error_description = error_description_str;
 				}
-				reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND );
+				coap_packet_t repl;
+				repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
+				reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND, repl );
 			}
 
 		}
@@ -1363,14 +1370,16 @@ template<typename OsModel_P,
 			len += write<OsModel , block_data_t , int16_t >( error_description_uint + len, transmit_optnum );
 			error_description = error_description_uint;
 		}
-		reply( message, error_description, len, err_coap_code );
+		coap_packet_t repl;
+		repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
+		reply( message, error_description, len, err_coap_code, repl );
 	}
 
 	COAP_SERVICE_TEMPLATE_PREFIX
 	void COAP_SERVICE_T::receive_coap(ReceivedMessage& message)
 	{
 		//TODO
-		DEBUG("Receive CoAP");
+		DBG_COAP("Receive CoAP");
 	}
 
 	COAP_SERVICE_TEMPLATE_PREFIX
