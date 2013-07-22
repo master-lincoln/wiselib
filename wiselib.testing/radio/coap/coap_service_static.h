@@ -1398,14 +1398,14 @@ template<typename OsModel_P,
 				if( i == rhs.length() )
 					return EQUAL;
 				else if( rhs[i] == '/' )
-					return LHS_IS_SUBRESOURCE;
+					return RHS_IS_SUBRESOURCE;
 				else
 					return NOT_EQUAL;
 			}
 			if( i == rhs.length() )
 			{
 				if( lhs[i] == '/' )
-					return RHS_IS_SUBRESOURCE;
+					return LHS_IS_SUBRESOURCE;
 				else
 					return NOT_EQUAL;
 			}
