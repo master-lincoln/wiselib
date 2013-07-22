@@ -41,10 +41,11 @@
 
 #define COAP_SERVICE_T	CoapServiceStatic<OsModel_P, Radio_P, Timer_P, Rand_P, String_T, preface_msg_id_, human_readable_errors_, coap_packet_t_, sent_list_size_, received_list_size_, resources_list_size_>
 
-#define TRACE(x) debug_->debug(x)
-#define DBG_COAP(x) debug_->debug(x)
-#define INFO(x)  debug_->debug(x)
-#define WARN(x)  debug_->debug(x)
+#ifdef DEBUG
+#define DBG_COAP(...) debug_->debug(__VA_ARGS__)
+#else
+#define DBG_COAP(...)
+#endif
 
 namespace wiselib {
 
@@ -75,7 +76,7 @@ template<typename OsModel_P,
 	typename Rand_P = typename OsModel_P::Rand,
 	typename String_T = wiselib::StaticString,
 	bool preface_msg_id_ = false,
-	bool human_readable_errors_ = false,
+	bool human_readable_errors_ = true,
 	typename coap_packet_t_ = typename wiselib::CoapPacketStatic<OsModel_P, Radio_P, String_T>::coap_packet_t,
 	typename OsModel_P::size_t sent_list_size_ = COAPRADIO_SENT_LIST_SIZE,
 	typename OsModel_P::size_t received_list_size_ = COAPRADIO_RECEIVED_LIST_SIZE,
@@ -696,7 +697,7 @@ template<typename OsModel_P,
 		recv_callback_id_ = radio_->template reg_recv_callback<self_t,
 			&self_t::receive > ( this );
 
-		INFO("[CoAP] Radio enabled");
+		DBG_COAP("[CoAP] Radio enabled");
 		return SUCCESS;
 	}
 
@@ -704,7 +705,7 @@ template<typename OsModel_P,
 	int COAP_SERVICE_T::disable_radio()
 	{
 		radio_->unreg_recv_callback(recv_callback_id_);
-		INFO("[CoAP] Radio disabled");
+		DBG_COAP("[CoAP] Radio disabled");
 		return SUCCESS;
 	}
 
@@ -830,7 +831,7 @@ template<typename OsModel_P,
 							}
 							else
 							{
-								WARN("Received ACK but didn't find belonging request");
+								DBG_COAP("[warning] Received ACK but didn't find belonging request");
 								//cout << "From: " << from << "\n";
 								//cout << "Msg-ID: " << packet.msg_id() << "\n";
 							}
@@ -905,7 +906,7 @@ template<typename OsModel_P,
 
 	COAP_SERVICE_TEMPLATE_PREFIX
 	template <class T, void (T::*TMethod)( typename COAP_SERVICE_T::ReceivedMessage& ) >
-	int COAP_SERVICE_T::reg_resource_callback( string_t resource_path, T *callback )
+	int COAP_SERVICE_T::reg_resource_callback( string_t resource_path, T *callback, CoapResource *resource )
 	{
 
 		if ( resources_.empty() )
@@ -913,14 +914,17 @@ template<typename OsModel_P,
 
 		for ( unsigned int i = 0; i < resources_.size(); ++i )
 		{
-			if ( resources_.at(i) == CoapResource() )
+			CoapResource &curr = resources_.at(i);
+			if ( curr == CoapResource() )
 			{
-				resources_.at(i).set_resource_path( resource_path );
-				resources_.at(i).set_callback( coapreceiver_delegate_t::template from_method<T, TMethod>( callback ) );
+				curr.set_resource_path( resource_path );
+				curr.set_callback( coapreceiver_delegate_t::template from_method<T, TMethod>( callback ) );
+				resource = &curr;
 				return i;
 			}
 		}
 
+		DBG_COAP("Maximum number of %d resources reached. Dropping \"%s\"", resources_.size(), resource_path.c_str() );
 		return -1;
 	}
 
@@ -941,7 +945,6 @@ template<typename OsModel_P,
 				first = false;
 				string_t path = curr.resource_path();
 				// TODO resource links in RFC6690 format including meta info
-				// TODO resource discovery for sub-resources
 				res.append("</");
 				res.append(path);
 				res.append(">");
@@ -1037,7 +1040,7 @@ template<typename OsModel_P,
 		pack.set_code( code );
 		if( !pack.is_request() )
 		{
-			// TODO ordentlichen Fehler schmeißen?
+			DBG_COAP("This shouldn't happen.");
 			return NULL;
 		}
 
@@ -1220,7 +1223,6 @@ template<typename OsModel_P,
 		}
 
 		string_t available_res;
-		// TODO: we're looking at the first path segment only, subresources should be handled by their parents
 		string_t request_res = message.message().uri_path();
 
 		// handle resource discovery at "/.well-known/core" path
@@ -1240,11 +1242,14 @@ template<typename OsModel_P,
 					available_res = resources_.at(i).resource_path();
 					// in order to match a resource, the requested uri must match a resource, or it must be a sub-element of a resource,
 					// which means the next symbol in the request must be a slash
-					if( path_cmp( request_res, available_res ) == EQUAL
-						|| path_cmp( request_res, available_res ) == LHS_IS_SUBRESOURCE)
+					int path_compare = path_cmp( request_res, available_res );
+					if( path_compare == EQUAL || path_compare == LHS_IS_SUBRESOURCE )
 					{
 						resources_.at(i).callback()( message );
 						resource_found = true;
+
+						// TODO: subresources should be handled by their parents only. Currently parent and directly registered subresource get called
+						//break;
 					}
 				}
 			}
@@ -1378,7 +1383,7 @@ template<typename OsModel_P,
 	COAP_SERVICE_TEMPLATE_PREFIX
 	void COAP_SERVICE_T::receive_coap(ReceivedMessage& message)
 	{
-		//TODO
+		//TODO why is this never getting called
 		DBG_COAP("Receive CoAP");
 	}
 
