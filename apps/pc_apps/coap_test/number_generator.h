@@ -105,7 +105,7 @@ public:
 	}
 
 	void got_ack(coap_message_t& msg) {
-		DEBUG("Got ACK");
+		DBG_COAP("Got ACK");
 	}
 
 	void receive_coap( coap_message_t &message )
@@ -125,7 +125,7 @@ public:
 				return;
 			} else if (observed_) {
 				// GET request without observe cancels notifications
-				DEBUG("Canceled Observe");
+				DBG_COAP("Canceled Observe");
 				observed_ = false;
 			}
 
@@ -136,23 +136,6 @@ public:
 
 		}
 
-	}
-
-	void print_packet(coap_packet_t packet) {
-		string_t code = ( packet.is_request() ? "Request" : ( packet.is_response() ? "Response" : "Empty Code") );
-		code.append(": ");
-		char buffer[3];
-		sprintf(buffer, "%d", packet.code());
-		string_t num_code = string_t(buffer);
-		code.append(num_code);
-
-		code.append("\nType: ");
-		sprintf(buffer, "%d", packet.type());
-		string_t num_type = string_t(buffer);
-		code.append(num_type);
-
-		//DEBUG(code.c_str());
-		//cout << code.c_str() << "\n";
 	}
 
 private:

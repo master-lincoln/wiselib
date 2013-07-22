@@ -354,7 +354,7 @@ template<typename OsModel_P,
 		 * @return index for unregistering a resource
 		 */
 		template<class T, void (T::*TMethod)(ReceivedMessage&)>
-		int reg_resource_callback( string_t resource_path, T *callback );
+		int reg_resource_callback( string_t resource_path, T *callback, CoapResource *resource = NULL );
 
 		/**
 		 * Unregisters a resource

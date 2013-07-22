@@ -16,6 +16,7 @@
 #include "calculator.h"
 #include "number_generator.h"
 #include "obs_test.h"
+#include "fixed_string_resource.h"
 
 using namespace wiselib;
 
@@ -83,7 +84,9 @@ int main(int argc, char** argv) {
 
 	cradio_.enable_radio();
 
-	ObsTest<Os, coap_radio_t, wiselib::StaticString> obs = ObsTest<Os, coap_radio_t, wiselib::StaticString>("oi", cradio_);
+	//ObsTest<Os, coap_radio_t, wiselib::StaticString> obs = ObsTest<Os, coap_radio_t, wiselib::StaticString>("observe", cradio_);
+	//FixedStringResource<coap_radio_t> observe_help = FixedStringResource<coap_radio_t>(cradio_, "observe/help", "This is a Test");
+
 
 	ToUpperCase<coap_radio_t> uppercaser = ToUpperCase<coap_radio_t>();
 	uppercaser.init(cradio_);
@@ -98,8 +101,8 @@ int main(int argc, char** argv) {
 	wiselib::StaticString calculator_path = wiselib::StaticString("calculator");
 	wiselib::StaticString generator_path = wiselib::StaticString("generator");
 
-	int to_upper_id = cradio_.reg_resource_callback< ToUpperCase<coap_radio_t>, &ToUpperCase<coap_radio_t>::receive_coap >( to_upper_path, &uppercaser );
-	int calc_id = cradio_.reg_resource_callback< Calculator<Os, coap_radio_t, wiselib::StaticString>, &Calculator<Os, coap_radio_t, wiselib::StaticString>::receive_coap >( calculator_path, &calculator );
+	//int to_upper_id = cradio_.reg_resource_callback< ToUpperCase<coap_radio_t>, &ToUpperCase<coap_radio_t>::receive_coap >( to_upper_path, &uppercaser );
+	//int calc_id = cradio_.reg_resource_callback< Calculator<Os, coap_radio_t, wiselib::StaticString>, &Calculator<Os, coap_radio_t, wiselib::StaticString>::receive_coap >( calculator_path, &calculator );
 	int gen_id = cradio_.reg_resource_callback< NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>, &NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>::receive_coap >( generator_path, &generator );
 
 	udpradio->set_socket( coapsocket );
