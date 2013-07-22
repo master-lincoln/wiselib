@@ -242,6 +242,57 @@ template<typename OsModel_P,
 
 		typedef delegate1<void, ReceivedMessage&> coapreceiver_delegate_t;
 
+		class CoapResource
+		{
+		public:
+			bool operator==( const CoapResource &other ) const
+			{
+				return ( this->resource_path() == other.resource_path() && this->callback() == other.callback() );
+			}
+
+			bool operator!=( const CoapResource &other ) const
+			{
+				return !( *this == other );
+			}
+
+			CoapResource()
+			{
+				resource_path_ = string_t();
+				callback_ = coapreceiver_delegate_t();
+			}
+
+			CoapResource( string_t path, coapreceiver_delegate_t callback)
+			{
+				set_resource_path( path );
+				set_callback( callback );
+			}
+
+			void set_resource_path( string_t path)
+			{
+				resource_path_ = path;
+			}
+
+			string_t resource_path() const
+			{
+				return resource_path_;
+			}
+
+			void set_callback( coapreceiver_delegate_t callback )
+			{
+				callback_ = callback;
+			}
+
+			coapreceiver_delegate_t callback() const
+			{
+				return callback_;
+			}
+
+		private:
+			string_t resource_path_;
+
+			coapreceiver_delegate_t callback_;
+		};
+
 		CoapServiceStatic();
 		~CoapServiceStatic();
 
@@ -551,56 +602,6 @@ template<typename OsModel_P,
 			bool ack_received_;
 			ReceivedMessage * response_;
 			coapreceiver_delegate_t sender_callback_;
-		};
-
-		class CoapResource
-		{
-		public:
-			bool operator==( const CoapResource &other ) const
-			{
-				return ( this->resource_path() == other.resource_path() && this->callback() == other.callback() );
-			}
-
-			bool operator!=( const CoapResource &other ) const
-			{
-				return !( *this == other );
-			}
-
-			CoapResource()
-			{
-				resource_path_ = string_t();
-				callback_ = coapreceiver_delegate_t();
-			}
-
-			CoapResource( string_t path, coapreceiver_delegate_t callback)
-			{
-				set_resource_path( path );
-				set_callback( callback );
-			}
-
-			void set_resource_path( string_t path)
-			{
-				resource_path_ = path;
-			}
-
-			string_t resource_path() const
-			{
-				return resource_path_;
-			}
-
-			void set_callback( coapreceiver_delegate_t callback )
-			{
-				callback_ = callback;
-			}
-
-			coapreceiver_delegate_t callback() const
-			{
-				return callback_;
-			}
-
-		private:
-			string_t resource_path_;
-			coapreceiver_delegate_t callback_;
 		};
 
 		typedef list_static<OsModel, ReceivedMessage, received_list_size_> received_list_t;
