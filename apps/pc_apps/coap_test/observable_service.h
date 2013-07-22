@@ -60,12 +60,9 @@ public:
 
 	virtual ~ObservableService() { }
 
-	ObservableService(string_t path, value_t initialStatus, Radio& radio)
+	ObservableService(string_t path, value_t initialStatus, Radio& radio) :
+		path_(path), status_(initialStatus), radio_(&radio)
 	{
-		path_ = path;
-		status_ = initialStatus;
-		radio_ = &radio;
-
 		updateNotificationConfirmable_ = true;
 		maxAge_ = COAP_DEFAULT_MAX_AGE;
 		observe_counter_ = 1;
