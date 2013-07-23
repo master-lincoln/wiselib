@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
 
 	cradio_.enable_radio();
 
-	//ObsTest<Os, coap_radio_t, wiselib::StaticString> obs = ObsTest<Os, coap_radio_t, wiselib::StaticString>("observe", cradio_);
-	//FixedStringResource<coap_radio_t> observe_help = FixedStringResource<coap_radio_t>(cradio_, "observe/help", "This is a Test");
+	ObsTest<Os, coap_radio_t, wiselib::StaticString> obs = ObsTest<Os, coap_radio_t, wiselib::StaticString>("observe", cradio_);
+	FixedStringResource<coap_radio_t> observe_help = FixedStringResource<coap_radio_t>(cradio_, "observe/help", "This is a Test");
 
 
 	ToUpperCase<coap_radio_t> uppercaser = ToUpperCase<coap_radio_t>();
