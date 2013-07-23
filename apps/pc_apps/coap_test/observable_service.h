@@ -37,6 +37,7 @@ public:
 	typedef typename Radio::coap_packet_t coap_packet_t;
 	typedef typename Radio::node_id_t node_id_t;
 	typedef typename Radio::block_data_t block_data_t;
+	typedef delegate1<void, coap_message_t&> coapreceiver_delegate_t;
 	typedef ObservableService self_type;
 
 	struct observer
@@ -66,6 +67,7 @@ public:
 		updateNotificationConfirmable_ = true;
 		maxAge_ = COAP_DEFAULT_MAX_AGE;
 		observe_counter_ = 1;
+		request_callback_ = coapreceiver_delegate_t();
 	}
 
 	void init()
@@ -91,11 +93,11 @@ public:
 			{
 				// no OBSERVE option -> remove correspondent from observers
 				remove_observer(msg);
-				// TODO call regular callback
+				request_callback_(msg);
 			}
 
 		} else {
-			cout << "DA fuck !!!!!\n";
+			// this should never happen...
 		}
 	}
 
@@ -156,6 +158,12 @@ public:
 
 	virtual void convert(value_t value, message_data& payload) = 0;
 
+	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
+	void set_request_callback( T *callback )
+	{
+		request_callback_ = coapreceiver_delegate_t::template from_method<T, TMethod>( callback );
+	}
+
 private:
 	Radio *radio_;
 	Timer *timer_;
@@ -168,6 +176,7 @@ private:
     bool updateNotificationConfirmable_;
     observer_vector_t observers_;
     uint32_t observe_counter_;
+    coapreceiver_delegate_t request_callback_;
 
 
     void schedule_max_age_notifications( void*)
@@ -256,6 +265,7 @@ private:
       }
 
       void got_ack(coap_message_t& message) {
+    	  // TODO why is this never getting called
           DBG_OBS("OBSERVE: GOT ACK");
       }
 
