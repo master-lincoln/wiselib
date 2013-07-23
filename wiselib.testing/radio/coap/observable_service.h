@@ -7,8 +7,6 @@
 #include "radio/coap/coap_service_static.h"
 #include "radio/coap/coap.h"
 
-#include "service.h"
-
 #define DEBUG_OBSERVE
 
 #ifdef DEBUG_OBSERVE
