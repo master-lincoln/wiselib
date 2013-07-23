@@ -30,7 +30,7 @@ using namespace std;
 static const size_t COAP_ERROR_STRING_LEN = 200;
 
 // size of the storage blob of a coap packet. contains options and payload
-static const size_t COAP_DEFAULT_STORAGE_SIZE = 127;
+static const size_t COAP_DEFAULT_STORAGE_SIZE = 512;
 
 // Size of message buffer that saves sent and received messages for a while
 static const size_t COAPRADIO_SENT_LIST_SIZE = 10;
@@ -66,7 +66,7 @@ enum CoapType
 static const uint8_t COAP_LONG_OPTION = 15;
 static const uint8_t COAP_UNLIMITED_OPTIONS = 15;
 static const uint8_t COAP_MAX_DELTA_UNLIMITED = 14;
-static const uint8_t COAP_MAX_DELTA_DEFAULT = 15;
+static const uint8_t COAP_MAX_DELTA_DEFAULT = 16;
 static const uint8_t COAP_END_OF_OPTIONS_MARKER = 0xf0;
 
 enum CoapOptionNum
@@ -87,6 +87,7 @@ enum CoapOptionNum
 	COAP_OPT_IF_MATCH = 13,
 	COAP_OPT_FENCEPOST = 14,
 	COAP_OPT_URI_QUERY = 15,
+	COAP_OPT_HL_STATE = 16, // TODO Option number for High-Level States
 	COAP_OPT_IF_NONE_MATCH = 21
 };
 
@@ -102,12 +103,15 @@ static const uint8_t COAP_OPT_MAXLEN_IF_NONE_MATCH = 0;
 static const uint16_t COAP_STRING_OPTS_MAXLEN = 270;
 static const uint16_t COAP_STRING_OPTS_MINLEN = 1;
 
+static const uint16_t COAP_OPT_MAXLEN_HL_STATE = 257;
+
+
 static const uint8_t COAP_DEFAULT_MAX_AGE = 60;
 
 static const uint8_t COAP_MAX_OBSERVERS = 30;
 
-// Finding the longest opaque option, out of the three opage options Etag, Token and IfMatch
-static const uint8_t COAP_OPT_MAXLEN_OPAQUE = COAP_OPT_MAXLEN_TOKEN;
+// Finding the longest opaque option, out of the 4 opage options Etag, Token, IfMatch and HL-State
+static const uint16_t COAP_OPT_MAXLEN_OPAQUE = COAP_OPT_MAXLEN_HL_STATE;
 
 // message codes
 //requests
@@ -183,7 +187,7 @@ static const uint8_t COAP_OPTION_FORMAT[COAP_OPTION_ARRAY_SIZE] =
 	COAP_FORMAT_OPAQUE,			// 13: COAP_OPT_IF_MATCH
 	COAP_FORMAT_NONE,			// 14: COAP_OPT_FENCEPOST
 	COAP_FORMAT_STRING,			// 15: COAP_OPT_URI_QUERY
-	COAP_FORMAT_UNKNOWN,		// 16: not in use
+	COAP_FORMAT_OPAQUE,			// 16: COAP_OPT_HL_STATE
 	COAP_FORMAT_UNKNOWN,		// 17: not in use
 	COAP_FORMAT_UNKNOWN,		// 18: not in use
 	COAP_FORMAT_UNKNOWN,		// 19: not in use
@@ -209,7 +213,7 @@ static const bool COAP_OPT_CAN_OCCUR_MULTIPLE[COAP_OPTION_ARRAY_SIZE] =
 	true,			// 13: COAP_OPT_IF_MATCH
 	false,			// 14: COAP_OPT_FENCEPOST
 	true,			// 15: COAP_OPT_URI_QUERY
-	false,			// 16: not in use
+	true,			// 16: COAP_OPT_HL_STATE
 	false,			// 17: not in use
 	false,			// 18: not in use
 	false,			// 19: not in use
