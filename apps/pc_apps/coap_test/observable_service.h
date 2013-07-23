@@ -67,6 +67,7 @@ public:
 		updateNotificationConfirmable_ = true;
 		maxAge_ = COAP_DEFAULT_MAX_AGE;
 		observe_counter_ = 1;
+		max_age_notifications_ = 0;
 		request_callback_ = coapreceiver_delegate_t();
 	}
 
@@ -83,6 +84,8 @@ public:
 		if( packet.is_request() ){
 
 			if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
+				// we got an observe request, add new observer or update token respectively
+				// and send ACK with piggy-packed sensor value
 				if ( add_observer(msg) )
 				{
 					coap_packet_t *sent = send_notification(observers_.back(), true);
@@ -115,7 +118,7 @@ public:
 	{
 		status_ = newStatus;
 		notify_observers();
-		//timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_, this, 0);
+		timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_ * 1000, this, 0);
 	}
 
 	uint32_t max_age()
@@ -150,6 +153,7 @@ public:
 
 	void notify_observers() {
 		observe_counter_++;
+		max_age_notifications_++;
 		for (observer_iterator_t it = observers_.begin(); it != observers_.end(); it++)
 		{
 			send_notification(*it);
@@ -176,13 +180,20 @@ private:
     bool updateNotificationConfirmable_;
     observer_vector_t observers_;
     uint32_t observe_counter_;
+    uint8_t max_age_notifications_;
     coapreceiver_delegate_t request_callback_;
 
 
     void schedule_max_age_notifications( void*)
 	{
-    	notify_observers();
-		timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_, this, 0);
+    	max_age_notifications_--;
+    	// only send if the last max-age expired
+    	if ( max_age_notifications_ == 0 && observers_.size() > 0 )
+    	{
+			DBG_OBS("OBSERVE: Max-Age reached. Resending notifications...");
+			notify_observers();
+			timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_ * 1000, this, 0);
+    	}
 	}
 
     /*!
@@ -258,7 +269,7 @@ private:
 		}
 		else
 		{
-			answer.set_type(COAP_MSG_TYPE_CON);
+			answer.set_type(message_type_for_notification());
 			sent = radio_->template send_coap_gen_msg_id<self_type, &self_type::got_ack>(observer.host_id, answer, this);
 		}
 		return sent;
