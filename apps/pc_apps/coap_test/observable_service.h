@@ -37,6 +37,7 @@ public:
 	typedef typename Radio::coap_packet_t coap_packet_t;
 	typedef typename Radio::node_id_t node_id_t;
 	typedef typename Radio::block_data_t block_data_t;
+	typedef delegate1<void, coap_message_t&> coapreceiver_delegate_t;
 	typedef ObservableService self_type;
 
 	struct observer
@@ -66,6 +67,8 @@ public:
 		updateNotificationConfirmable_ = true;
 		maxAge_ = COAP_DEFAULT_MAX_AGE;
 		observe_counter_ = 1;
+		max_age_notifications_ = 0;
+		request_callback_ = coapreceiver_delegate_t();
 	}
 
 	void init()
@@ -81,6 +84,8 @@ public:
 		if( packet.is_request() ){
 
 			if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
+				// we got an observe request, add new observer or update token respectively
+				// and send ACK with piggy-packed sensor value
 				if ( add_observer(msg) )
 				{
 					coap_packet_t *sent = send_notification(observers_.back(), true);
@@ -91,11 +96,11 @@ public:
 			{
 				// no OBSERVE option -> remove correspondent from observers
 				remove_observer(msg);
-				// TODO call regular callback
+				request_callback_(msg);
 			}
 
 		} else {
-			cout << "DA fuck !!!!!\n";
+			// this should never happen...
 		}
 	}
 
@@ -113,7 +118,7 @@ public:
 	{
 		status_ = newStatus;
 		notify_observers();
-		//timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_, this, 0);
+		timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_ * 1000, this, 0);
 	}
 
 	uint32_t max_age()
@@ -148,6 +153,7 @@ public:
 
 	void notify_observers() {
 		observe_counter_++;
+		max_age_notifications_++;
 		for (observer_iterator_t it = observers_.begin(); it != observers_.end(); it++)
 		{
 			send_notification(*it);
@@ -155,6 +161,12 @@ public:
 	}
 
 	virtual void convert(value_t value, message_data& payload) = 0;
+
+	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
+	void set_request_callback( T *callback )
+	{
+		request_callback_ = coapreceiver_delegate_t::template from_method<T, TMethod>( callback );
+	}
 
 private:
 	Radio *radio_;
@@ -168,12 +180,20 @@ private:
     bool updateNotificationConfirmable_;
     observer_vector_t observers_;
     uint32_t observe_counter_;
+    uint8_t max_age_notifications_;
+    coapreceiver_delegate_t request_callback_;
 
 
     void schedule_max_age_notifications( void*)
 	{
-    	notify_observers();
-		timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_, this, 0);
+    	max_age_notifications_--;
+    	// only send if the last max-age expired
+    	if ( max_age_notifications_ == 0 && observers_.size() > 0 )
+    	{
+			DBG_OBS("OBSERVE: Max-Age reached. Resending notifications...");
+			notify_observers();
+			timer_->template set_timer<self_type, &self_type::schedule_max_age_notifications>(maxAge_ * 1000, this, 0);
+    	}
 	}
 
     /*!
@@ -249,13 +269,14 @@ private:
 		}
 		else
 		{
-			answer.set_type(COAP_MSG_TYPE_CON);
+			answer.set_type(message_type_for_notification());
 			sent = radio_->template send_coap_gen_msg_id<self_type, &self_type::got_ack>(observer.host_id, answer, this);
 		}
 		return sent;
       }
 
       void got_ack(coap_message_t& message) {
+    	  // TODO why is this never getting called
           DBG_OBS("OBSERVE: GOT ACK");
       }
 

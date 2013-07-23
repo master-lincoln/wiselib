@@ -8,21 +8,24 @@
 #ifndef SERVICE_H_
 #define SERVICE_H_
 
+// TODO this should be a concept
+// TODO reformat comments (borrowed from nCoAp implementation)
+
 namespace wiselib
 {
 /**
- * This is the interface to be implemented to realize a CoAP webservice. The generic type T means, that the object
- * that holds the status of the resource is of type T.
+ * \brief This is the interface to be implemented to realize a CoAP webservice.
+ * The generic type Value_P means, that the object that holds the status of the resource is of type Value_P.
  *
- * Example: Assume, you want to realize a service representing a temperature with limited accuracy (integer values).
- * Then, your service class must implement WebService<Integer>.
  */
-template<typename Value_P, typename String_T>
+template<typename Value_P, typename Message_P, typename String_T>
 class IService
 {
 public:
 	typedef Value_P value_t;
 	typedef String_T string_t;
+	typedef Message_P message_t;
+	typedef IService<value_t, message_t, string_t> self_t;
 
 	virtual ~IService() {}
 
@@ -104,6 +107,9 @@ public:
      */
     //void processCoapRequest(SettableFuture<CoapResponse> responseFuture, CoapRequest request,
     //                               InetSocketAddress remoteAddress);
+     template <class T, void (T::*TMethod)( typename self_t::message_t & ) >
+     int reg_request_callback( T *callback );
+
 };
 
 }
