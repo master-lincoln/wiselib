@@ -3,9 +3,10 @@
 
 #include "util/pstl/vector_static.h"
 
-#include "radio/coap/coap_packet_static.h"
-#include "radio/coap/coap_service_static.h"
-#include "radio/coap/coap.h"
+#include "coap_service.h"
+#include "coap_packet_static.h"
+#include "coap_service_static.h"
+#include "coap.h"
 
 #define DEBUG_OBSERVE
 
@@ -19,7 +20,7 @@ namespace wiselib
 {
 
 template<typename Os_P, typename CoapRadio_P, typename String_T, typename Value_T>
-class ObservableService
+class ObservableService : public CoapService<Os_P, CoapRadio_P, String_T>
 {
 public:
 
@@ -57,54 +58,45 @@ public:
     typedef typename observer_vector_t::iterator observer_iterator_t;
 
 
-	~ObservableService() { }
+	virtual ~ObservableService() { }
 
 	ObservableService(string_t path, value_t initialStatus, Radio& radio) :
-		path_(path), status_(initialStatus), radio_(&radio)
+		CoapService<Os, Radio, string_t>(path, radio),
+		status_(initialStatus),
+		updateNotificationConfirmable_(true),
+		maxAge_(COAP_DEFAULT_MAX_AGE),
+		observe_counter_ (1),
+		max_age_notifications_(0),
+		request_callback_(coapreceiver_delegate_t())
 	{
-		updateNotificationConfirmable_ = true;
-		maxAge_ = COAP_DEFAULT_MAX_AGE;
-		observe_counter_ = 1;
-		max_age_notifications_ = 0;
-		request_callback_ = coapreceiver_delegate_t();
+		CoapService<Os, Radio, string_t>::template set_request_callback<self_type, &self_type::coap_request_observe >( this );
 	}
 
-	void init()
-	{
-		radio_->template reg_resource_callback<self_type, &self_type::receive_coap >( path_, this );
-	}
-
-	void receive_coap(coap_message_t &msg) {
+	void coap_request_observe(coap_message_t &msg) {
 
 		coap_packet_t & packet = msg.message();
 		uint32_t observe_value;
 
-		if( packet.is_request() ){
 
-			if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
-				// we got an observe request, add new observer or update token respectively
-				// and send ACK with piggy-packed sensor value
-				if ( add_observer(msg) )
-				{
-					coap_packet_t *sent = send_notification(observers_.back(), true);
-					msg.set_ack_sent(sent);
-				}
-			}
-			else
+		if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
+			// we got an observe request, add new observer or update token respectively
+			// and send ACK with piggybacked sensor value
+			if ( add_observer(msg) )
 			{
-				// no OBSERVE option -> remove correspondent from observers
-				remove_observer(msg);
+				coap_packet_t *sent = send_notification(observers_.back(), true);
+				msg.set_ack_sent(sent);
+			}
+		}
+		else
+		{
+			// no OBSERVE option -> remove correspondent from observers
+			remove_observer(msg);
+			if ( request_callback_ && request_callback_.obj_ptr() != NULL )
+			{
 				request_callback_(msg);
 			}
 
-		} else {
-			// this should never happen...
 		}
-	}
-
-	string_t path()
-	{
-		return path_;
 	}
 
 	value_t status()
@@ -168,12 +160,10 @@ public:
 	}
 
 private:
-	Radio *radio_;
 	Timer *timer_;
 	Debug *debug_;
 	Clock *clock_;
 
-	string_t path_;
 	value_t status_;
 	uint32_t maxAge_;
     bool updateNotificationConfirmable_;
@@ -264,12 +254,12 @@ private:
 			// send response piggy-backed with ACK
 			answer.set_type(COAP_MSG_TYPE_ACK);
 			answer.set_msg_id(observer.last_mid);
-			sent = radio_->template send_coap_as_is<self_type, &self_type::got_ack>(observer.host_id, answer, this);
+			sent = this->radio()->template send_coap_as_is<self_type, &self_type::got_ack>(observer.host_id, answer, this);
 		}
 		else
 		{
 			answer.set_type(message_type_for_notification());
-			sent = radio_->template send_coap_gen_msg_id<self_type, &self_type::got_ack>(observer.host_id, answer, this);
+			sent = this->radio()->template send_coap_gen_msg_id<self_type, &self_type::got_ack>(observer.host_id, answer, this);
 		}
 		return sent;
       }

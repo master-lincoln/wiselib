@@ -28,10 +28,10 @@ public:
 		ObservableService<Os_P, CoapRadio_P, String_T, uint>(path, 0, radio)
 	{
 		num_ = 100;
-		this->init();
 		this->template set_request_callback<self_type, &self_type::handle_request>(this);
 		this->set_max_age(20);
 		this->set_update_notification_confirmable(false);
+		this->set_handle_subresources(false);
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
 	}
 	// --------------------------------------------------------------------------
