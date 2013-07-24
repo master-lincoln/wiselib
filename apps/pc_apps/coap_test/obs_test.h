@@ -1,14 +1,7 @@
-/*
- * obs_test.h
- *
- *  Created on: Jul 15, 2013
- *      Author: wiselib
- */
-
 #ifndef OBS_TEST_H_
 #define OBS_TEST_H_
 
-#include "observable_service.h"
+#include "radio/coap/observable_service.h"
 
 #define OBS_TEST_INTERVAL 40000
 
@@ -30,7 +23,7 @@ public:
 	typedef typename Radio::ReceivedMessage coap_message_t;
 	typedef typename Radio::coap_packet_t coap_packet_t;
 	typedef struct ObservableService<Os_P, CoapRadio_P, String_T, uint>::message_data message_data;
-
+	// --------------------------------------------------------------------------
 	ObsTest(string_t path, Radio& radio) :
 		ObservableService<Os_P, CoapRadio_P, String_T, uint>(path, 0, radio)
 	{
@@ -41,19 +34,21 @@ public:
 		this->set_update_notification_confirmable(false);
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
 	}
-
-	void gen_number(void*) {
+	// --------------------------------------------------------------------------
+	void gen_number(void*)
+	{
 		num_ = (++num_) % 1000;
 		this->set_status(num_);
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
 	}
-
-	void convert(uint value, message_data& payload) {
+	// --------------------------------------------------------------------------
+	void convert(uint value, message_data& payload)
+	{
 		char data[10];
 		payload.length = sprintf(data, "%d", value);
 		payload.data = (block_data_t*) data;
 	}
-
+	// --------------------------------------------------------------------------
 	void handle_request(coap_message_t& msg)
 	{
 		coap_packet_t & packet = msg.message();
