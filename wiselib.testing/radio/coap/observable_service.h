@@ -7,8 +7,6 @@
 #include "radio/coap/coap_service_static.h"
 #include "radio/coap/coap.h"
 
-#include "service.h"
-
 #define DEBUG_OBSERVE
 
 #ifdef DEBUG_OBSERVE
@@ -59,7 +57,7 @@ public:
     typedef typename observer_vector_t::iterator observer_iterator_t;
 
 
-	virtual ~ObservableService() { }
+	~ObservableService() { }
 
 	ObservableService(string_t path, value_t initialStatus, Radio& radio) :
 		path_(path), status_(initialStatus), radio_(&radio)
@@ -76,7 +74,7 @@ public:
 		radio_->template reg_resource_callback<self_type, &self_type::receive_coap >( path_, this );
 	}
 
-	virtual void receive_coap(coap_message_t &msg) {
+	void receive_coap(coap_message_t &msg) {
 
 		coap_packet_t & packet = msg.message();
 		uint32_t observe_value;
@@ -160,6 +158,7 @@ public:
 		}
 	}
 
+	// TODO virtual inheritance is discouraged by wiselib
 	virtual void convert(value_t value, message_data& payload) = 0;
 
 	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
