@@ -25,9 +25,10 @@ public:
 		path_(path),
 		radio_(&radio),
 		handle_subresources_(false),
-		request_callback_(coapreceiver_delegate_t())
+		request_callback_(coapreceiver_delegate_t()),
+		radio_reg_id_(0)
 	{
-		radio_->template reg_resource_callback<self_type, &self_type::receive_coap >( path_, this );
+		radio_reg_id_ = radio_->template reg_resource_callback<self_type, &self_type::receive_coap >( path_, this );
 	}
 
 	void receive_coap(coap_message_t &msg) {
@@ -61,6 +62,11 @@ public:
 		handle_subresources_ = handle_subresources;
 	}
 
+	void shutdown()
+	{
+		radio_->unreg_resource_callback(radio_reg_id_);
+	}
+
 	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
 	void set_request_callback( T *callback )
 	{
@@ -70,6 +76,7 @@ public:
 private:
 	Radio *radio_;
 	string_t path_;
+	int radio_reg_id_;
 	bool handle_subresources_;						// if set, parent also receives all subresource requests
 	coapreceiver_delegate_t request_callback_;
 
