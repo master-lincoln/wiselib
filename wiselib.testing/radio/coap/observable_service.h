@@ -138,7 +138,8 @@ public:
 
 	void shutdown()
 	{
-
+		this->shutdown();
+		// TODO notify observers of shutdown
 	}
 
 	void notify_observers() {
