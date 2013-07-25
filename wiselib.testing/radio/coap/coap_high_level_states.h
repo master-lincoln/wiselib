@@ -15,6 +15,7 @@ namespace wiselib {
 static const int COAP_MAX_HL_STATES = 10;
 static const int COAP_MAX_STATE_RESOURCES = 10;
 
+// --------------------------------------------------------------------------
 namespace HighLevelCreationType {
 	enum CreationType {
 		INTEGER,
@@ -23,7 +24,7 @@ namespace HighLevelCreationType {
 	};
 }
 typedef HighLevelCreationType::CreationType creation_type_t;
-
+// --------------------------------------------------------------------------
 namespace HighLevelQueryType {
 	enum QueryType {
 		STATE,
@@ -32,78 +33,95 @@ namespace HighLevelQueryType {
 	};
 }
 typedef HighLevelQueryType::QueryType query_type_t;
-
-
-template<typename T, typename String>
+// --------------------------------------------------------------------------
+template<typename T>
 struct number_state
 {
 	T lower_bound;
 	T upper_bound;
-	String name;
+	const char* name;
 
-	String to_json();
+	char* to_json();
 };
-
-template<typename String>
-struct number_state<int, String>
-{
-	int lower_bound;
-	int upper_bound;
-	String name;
-
-	String to_json();
-};
-
-template<typename Os_Model, typename T, typename String>
+// --------------------------------------------------------------------------
+template<typename Os_Model, typename T>
 struct number_state_resource
 {
 	creation_type_t type;
-	String path;
-	vector_static<Os_Model, number_state<T, String>, COAP_MAX_HL_STATES> states;
+	const char* path;
+	vector_static<Os_Model, number_state<T>, COAP_MAX_HL_STATES> states;
 
-	String to_json();
-	String get_state(T sensor_value);
+	char* to_json();
+	char* get_state(T sensor_value);
 };
-
-
-
-template<typename Os_Model, typename T, typename String>
-String number_state_resource<Os_Model, T, String>::to_json()
+// --------------------------------------------------------------------------
+template<typename Os_Model, typename T>
+char* number_state_resource<Os_Model, T>::to_json()
 {
-	String result = String("");
-	// TODO make sure String will not exceed 64 characters or use char*
-	result.append("{p:'");
-	result.append(path);
-	result.append("', num:[");
+	uint16_t size = 32 * states.size() + 23 + 64;
+	char* result = new char[size];
+	char p[5] = "{p:'";
+	char n[9] = "', num:[";
+	char c[3] = "]}";
+
+	strcat(result, p);
+	strcat(result, path);
+	strcat(result, n);
+
 	for (size_t i=0; i<states.size(); i++)
 	{
-		String json = states.at(i).to_json();
-		result.append( json );
+		char* json = states.at(i).to_json();
+		strcat(result, json);
 	}
-	result.append("]}");
+	strcat(result, c);
 
 	return result;
 }
-
-template<typename String>
-String number_state<int, String>::to_json() {
-	String result = String("");
+// --------------------------------------------------------------------------
+template<>
+char* number_state<int>::to_json() {
+	char* result = new char[32];
+	char l[4] = "{l:";
+	char h[4] = ",h:";
+	char s[5] = ",s:'";
+	char c[3] = "'}";
 
 	char low_char[8];
 	snprintf(low_char,8,"%d",lower_bound);
-	String low = String(low_char);
 
 	char up_char[8];
 	snprintf(up_char,8,"%d",upper_bound);
-	String high = String(up_char);
 
-	result.append("{l:");
-	result.append(low);
-	result.append(",h:");
-	result.append(high);
-	result.append(",s:'");
-	result.append(name);
-	result.append("'}");
+	strcat(result, l);
+	strcat(result, low_char);
+	strcat(result, h);
+	strcat(result, up_char);
+	strcat(result, name);
+	strcat(result, c);
+
+	return result;
+}
+// --------------------------------------------------------------------------
+template<>
+char* number_state<float>::to_json() {
+	char* result = new char[32];
+	char l[4] = "{l:";
+	char h[4] = ",h:";
+	char s[5] = ",s:'";
+	char c[3] = "'}";
+
+	char low_char[8];
+	snprintf(low_char,8,"%f",lower_bound);
+
+	char up_char[8];
+	snprintf(up_char,8,"%f",upper_bound);
+
+	strcat(result, l);
+	strcat(result, low_char);
+	strcat(result, h);
+	strcat(result, up_char);
+	strcat(result, name);
+	strcat(result, c);
 
 	return result;
 }
