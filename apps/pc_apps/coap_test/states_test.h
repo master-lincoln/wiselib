@@ -24,7 +24,7 @@ public:
 	typedef typename Radio::ReceivedMessage coap_message_t;
 	typedef typename Radio::coap_packet_t coap_packet_t;
 
-	typedef vector_static<Os, number_state_resource<Os, int, string_t>, COAP_MAX_STATE_RESOURCES> state_resources_vector_t;
+	typedef vector_static<Os, number_state_resource<Os, int>, COAP_MAX_STATE_RESOURCES> state_resources_vector_t;
 
 	// --------------------------------------------------------------------------
 	StatesTest(string_t path, Radio& radio, typename Os::Timer* timer) :
@@ -37,12 +37,12 @@ public:
 		timer_->template set_timer<self_type, &self_type::gen_number>(STATES_TEST_INTERVAL, this, 0);
 
 		// ----------------------------------------------------
-		number_state_resource<Os, int, string_t> hls_res;
+		number_state_resource<Os, int> hls_res;
 		hls_res.type = HighLevelCreationType::INTEGER;
-		hls_res.path = string_t("mr21");
+		hls_res.path = "mr21";
 
-		number_state<int, string_t> state1 = {0,20,"low"};
-		number_state<int, string_t> state2 = {20,40,"high"};
+		number_state<int> state1 = {0,20,"low"};
+		number_state<int> state2 = {20,40,"high"};
 
 		hls_res.states.push_back(state1);
 		hls_res.states.push_back(state2);
