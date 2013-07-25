@@ -13,56 +13,89 @@
 namespace wiselib {
 
 static const int COAP_MAX_HL_STATES = 10;
+static const int COAP_MAX_STATE_RESOURCES = 10;
 
-enum HighLevelCreationType {
-	INTEGER,
-	FLOAT,
-	STRING
-};
+namespace HighLevelCreationType {
+	enum CreationType {
+		INTEGER,
+		FLOAT,
+		STRING
+	};
+}
+typedef HighLevelCreationType::CreationType creation_type_t;
 
-enum HighLevelQueryType {
-	STATE,
-	STATE_NUMBER,
-	STATE_DESCRIPTION
-};
+namespace HighLevelQueryType {
+	enum QueryType {
+		STATE,
+		STATE_NUMBER,
+		STATE_DESCRIPTION
+	};
+}
+typedef HighLevelQueryType::QueryType query_type_t;
 
-template<typename Os_Model, typename T, typename String>
-struct number_state_resource {
-	HighLevelCreationType type;
-	String path;
-	vector_static<Os_Model, number_state, COAP_MAX_HL_STATES> states;
-
-	String to_json() const;
-};
 
 template<typename T, typename String>
-struct number_state {
+struct number_state
+{
 	T lower_bound;
 	T upper_bound;
 	String name;
 
-	String to_json() const;
+	String to_json();
+};
+
+template<typename String>
+struct number_state<int, String>
+{
+	int lower_bound;
+	int upper_bound;
+	String name;
+
+	String to_json();
 };
 
 template<typename Os_Model, typename T, typename String>
-String number_state_resource::to_json() const {
-	String result = String("");
+struct number_state_resource
+{
+	creation_type_t type;
+	String path;
+	vector_static<Os_Model, number_state<T, String>, COAP_MAX_HL_STATES> states;
 
+	String to_json();
+	String get_state(T sensor_value);
+};
+
+
+
+template<typename Os_Model, typename T, typename String>
+String number_state_resource<Os_Model, T, String>::to_json()
+{
+	String result = String("");
+	// TODO make sure String will not exceed 64 characters or use char*
 	result.append("{p:'");
 	result.append(path);
 	result.append("', num:[");
-	// TODO for each number state -> to_json
+	for (size_t i=0; i<states.size(); i++)
+	{
+		String json = states.at(i).to_json();
+		result.append( json );
+	}
 	result.append("]}");
 
 	return result;
 }
 
-template<typename T, typename String>
-String number_state::to_json() const {
+template<typename String>
+String number_state<int, String>::to_json() {
 	String result = String("");
-	// TODO high/low to String
-	String low = String("0");
-	String high = String("10");
+
+	char low_char[8];
+	snprintf(low_char,8,"%d",lower_bound);
+	String low = String(low_char);
+
+	char up_char[8];
+	snprintf(up_char,8,"%d",upper_bound);
+	String high = String(up_char);
 
 	result.append("{l:");
 	result.append(low);

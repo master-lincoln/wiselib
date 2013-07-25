@@ -87,7 +87,7 @@ enum CoapOptionNum
 	COAP_OPT_IF_MATCH = 13,
 	COAP_OPT_FENCEPOST = 14,
 	COAP_OPT_URI_QUERY = 15,
-	COAP_OPT_HL_STATE = 16, // TODO Option number for High-Level States
+	COAP_OPT_HL_STATE = 23, // TODO Option number for High-Level States
 	COAP_OPT_IF_NONE_MATCH = 21
 };
 
@@ -166,7 +166,7 @@ static const uint8_t COAP_FORMAT_UNKNOWN = 255;
 static const uint8_t COAP_FORMAT_UINT = 1;
 static const uint8_t COAP_FORMAT_STRING = 2;
 static const uint8_t COAP_FORMAT_OPAQUE = 3;
-static const uint8_t COAP_LARGEST_OPTION_NUMBER = 21;
+static const uint8_t COAP_LARGEST_OPTION_NUMBER = 23;
 static const uint8_t COAP_OPTION_ARRAY_SIZE = COAP_LARGEST_OPTION_NUMBER + 1;
 
 static const uint8_t COAP_OPTION_FORMAT[COAP_OPTION_ARRAY_SIZE] =
