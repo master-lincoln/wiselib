@@ -67,7 +67,7 @@ public:
 		radio_->unreg_resource_callback(radio_reg_id_);
 	}
 
-	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
+	template < class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
 	void set_request_callback( T *callback )
 	{
 		request_callback_ = coapreceiver_delegate_t::template from_method<T, TMethod>( callback );

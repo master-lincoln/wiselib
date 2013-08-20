@@ -42,6 +42,7 @@ struct number_state
 	const char* name;
 
 	char* to_json();
+	const char* oi();
 };
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
@@ -96,6 +97,7 @@ char* number_state<int>::to_json() {
 	strcat(result, low_char);
 	strcat(result, h);
 	strcat(result, up_char);
+	strcat(result, s);
 	strcat(result, name);
 	strcat(result, c);
 
@@ -120,9 +122,17 @@ char* number_state<float>::to_json() {
 	strcat(result, low_char);
 	strcat(result, h);
 	strcat(result, up_char);
+	strcat(result, s);
 	strcat(result, name);
 	strcat(result, c);
 
+	return result;
+}
+// --------------------------------------------------------------------------
+template<>
+const char* number_state<float>::oi() {
+	const char* result = "oi!!!\n";
+	cout << result;
 	return result;
 }
 
