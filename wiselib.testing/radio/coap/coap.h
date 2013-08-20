@@ -35,7 +35,7 @@ static const size_t COAP_DEFAULT_STORAGE_SIZE = 512;
 // Size of message buffer that saves sent and received messages for a while
 static const size_t COAPRADIO_SENT_LIST_SIZE = 10;
 static const size_t COAPRADIO_RECEIVED_LIST_SIZE = 10;
-static const size_t COAPRADIO_RESOURCES_SIZE = 5;
+static const size_t COAPRADIO_RESOURCES_SIZE = 10;
 
 enum CoapMsgIds
 {
@@ -152,6 +152,17 @@ enum CoapCode
 	COAP_CODE_PROXYING_NOT_SUPPORTED = 165 // 5.05
 };
 
+enum CoapContentType
+{
+	COAP_CONTENT_TYPE_TEXT_PLAIN = 0,
+	COAP_CONTENT_TYPE_APPLICATION_LINK_FORMAT = 40,
+	COAP_CONTENT_TYPE_APPLICATION_XML = 41,
+	COAP_CONTENT_TYPE_APPLICATION_OCTET_STREAM = 42,
+	COAP_CONTENT_TYPE_APPLICATION_EXI = 47,
+	COAP_CONTENT_TYPE_APPLICATION_JSON = 50,
+	COAP_CONTENT_TYPE_NONE = 999
+};
+
 enum TimerType
 {
 	TIMER_NONE,
@@ -187,12 +198,14 @@ static const uint8_t COAP_OPTION_FORMAT[COAP_OPTION_ARRAY_SIZE] =
 	COAP_FORMAT_OPAQUE,			// 13: COAP_OPT_IF_MATCH
 	COAP_FORMAT_NONE,			// 14: COAP_OPT_FENCEPOST
 	COAP_FORMAT_STRING,			// 15: COAP_OPT_URI_QUERY
-	COAP_FORMAT_OPAQUE,			// 16: COAP_OPT_HL_STATE
+	COAP_FORMAT_UNKNOWN,		// 16: not in use
 	COAP_FORMAT_UNKNOWN,		// 17: not in use
 	COAP_FORMAT_UNKNOWN,		// 18: not in use
 	COAP_FORMAT_UNKNOWN,		// 19: not in use
 	COAP_FORMAT_UNKNOWN,		// 20: not in use
-	COAP_FORMAT_NONE			// 21: COAP_OPT_IF_NONE_MATCH
+	COAP_FORMAT_NONE,			// 21: COAP_OPT_IF_NONE_MATCH
+	COAP_FORMAT_UNKNOWN,		// 22: not in use
+	COAP_FORMAT_OPAQUE			// 23: COAP_OPT_HL_STATE
 };
 
 static const bool COAP_OPT_CAN_OCCUR_MULTIPLE[COAP_OPTION_ARRAY_SIZE] =
@@ -213,12 +226,14 @@ static const bool COAP_OPT_CAN_OCCUR_MULTIPLE[COAP_OPTION_ARRAY_SIZE] =
 	true,			// 13: COAP_OPT_IF_MATCH
 	false,			// 14: COAP_OPT_FENCEPOST
 	true,			// 15: COAP_OPT_URI_QUERY
-	true,			// 16: COAP_OPT_HL_STATE
+	false,			// 16: not in use
 	false,			// 17: not in use
 	false,			// 18: not in use
 	false,			// 19: not in use
 	false,			// 20: not in use
-	false			// 21: COAP_OPT_IF_NONE_MATCH
+	false,			// 21: COAP_OPT_IF_NONE_MATCH
+	false,			// 22: not in use
+	true			// 23: COAP_OPT_HL_STATE
 };
 
 namespace wiselib

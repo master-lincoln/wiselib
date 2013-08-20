@@ -3,7 +3,7 @@
 
 #include "radio/coap/observable_service.h"
 
-#define OBS_TEST_INTERVAL 40000
+#define OBS_TEST_INTERVAL 4000
 
 namespace wiselib
 {
@@ -55,8 +55,13 @@ public:
 
 		switch ( packet.code() ) {
 			case COAP_CODE_GET:
-				cout << "GET Request\n";
-				break;
+				{
+					char buffer[3];
+					int val_len = sprintf( buffer, "%d", this->status() );
+
+					this->radio()->reply( msg, (uint8_t *) buffer, val_len );
+					break;
+				}
 			case COAP_CODE_POST:
 				cout << "POST Request\n";
 				break;

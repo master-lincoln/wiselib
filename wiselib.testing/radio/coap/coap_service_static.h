@@ -490,6 +490,7 @@ template<typename OsModel_P,
 				uint8_t* payload,
 				size_t payload_length,
 				CoapCode code = COAP_CODE_CONTENT,
+				CoapContentType content_type = COAP_CONTENT_TYPE_NONE,
 				coap_packet_t reply = coap_packet_t());
 
 	private:
@@ -851,16 +852,15 @@ template<typename OsModel_P,
 							{
 								char * error_description = NULL;
 								int len = 0;
+								CoapContentType ctype = COAP_CONTENT_TYPE_NONE;
 								if( human_readable_errors_ )
 								{
 									char error_description_str[COAP_ERROR_STRING_LEN];
 									len = sprintf( error_description_str, "Unknown Code %i", packet.code() );
 									error_description = error_description_str;
+									ctype = COAP_CONTENT_TYPE_TEXT_PLAIN;
 								}
-
-								coap_packet_t repl;
-								repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
-								reply( received_message, (block_data_t*) error_description, len, COAP_CODE_NOT_IMPLEMENTED, repl );
+								reply( received_message, (block_data_t*) error_description, len, COAP_CODE_NOT_IMPLEMENTED, ctype );
 							}
 						}
 					}
@@ -921,6 +921,7 @@ template<typename OsModel_P,
 				curr.set_resource_path( resource_path );
 				curr.set_callback( coapreceiver_delegate_t::template from_method<T, TMethod>( callback ) );
 				resource = &curr;
+				DBG_COAP("Registered new resource under \"%s\"", resource_path.c_str() );
 				return i;
 			}
 		}
@@ -951,12 +952,7 @@ template<typename OsModel_P,
 				res.append(">");
 			}
 		}
-
-		coap_packet_t packet;
-		// set content_type to "application/link-format"
-		packet.set_option(COAP_OPT_CONTENT_TYPE, 40);
-
-		reply(message, (uint8_t*) res.c_str(), res.length(), COAP_CODE_CONTENT, packet);
+		reply(message, (uint8_t*) res.c_str(), res.length(), COAP_CODE_CONTENT, COAP_CONTENT_TYPE_APPLICATION_LINK_FORMAT);
 	}
 
 	COAP_SERVICE_TEMPLATE_PREFIX
@@ -1068,6 +1064,7 @@ template<typename OsModel_P,
 				uint8_t* payload,
 				size_t payload_length,
 				CoapCode code,
+				CoapContentType content_type,
 				coap_packet_t reply)
 	{
 		coap_packet_t *sendstatus = NULL;
@@ -1076,6 +1073,7 @@ template<typename OsModel_P,
 		request.token( token );
 
 		reply.set_token( token );
+		reply.set_content_type( content_type );
 
 		if( request.type() == COAP_MSG_TYPE_CON || request.type() == COAP_MSG_TYPE_NON )
 			reply.set_type( request.type() );
@@ -1259,15 +1257,15 @@ template<typename OsModel_P,
 
 				char * error_description = NULL;
 				int len = 0;
+				CoapContentType ctype = COAP_CONTENT_TYPE_NONE;
 				if( human_readable_errors_ )
 				{
 					char error_description_str[COAP_ERROR_STRING_LEN];
 					len = sprintf(error_description_str, "Resource \"%s\" not found.", request_res.c_str() );
 					error_description = error_description_str;
+					ctype = COAP_CONTENT_TYPE_TEXT_PLAIN;
 				}
-				coap_packet_t repl;
-				repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
-				reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND, repl );
+				reply( message, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND, ctype );
 			}
 
 		}
@@ -1339,6 +1337,7 @@ template<typename OsModel_P,
 		}
 		block_data_t * error_description = NULL;
 		int len = 0;
+		CoapContentType ctype = COAP_CONTENT_TYPE_NONE;
 		if( human_readable_errors_ )
 		{
 			char error_description_str[COAP_ERROR_STRING_LEN];
@@ -1366,6 +1365,7 @@ template<typename OsModel_P,
 				len = sprintf(error_description_str, "Error: Unknown error %i, last option before error: %i ", error, err_optnum );
 			}
 			error_description = (block_data_t *) error_description_str;
+			ctype = COAP_CONTENT_TYPE_TEXT_PLAIN;
 		}
 		else
 		{
@@ -1376,9 +1376,7 @@ template<typename OsModel_P,
 			len += write<OsModel , block_data_t , int16_t >( error_description_uint + len, transmit_optnum );
 			error_description = error_description_uint;
 		}
-		coap_packet_t repl;
-		repl.set_option(COAP_OPT_CONTENT_TYPE, 0);
-		reply( message, error_description, len, err_coap_code, repl );
+		reply( message, error_description, len, err_coap_code, ctype );
 	}
 
 	COAP_SERVICE_TEMPLATE_PREFIX
