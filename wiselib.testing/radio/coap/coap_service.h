@@ -3,10 +3,18 @@
 
 #include "util.h"
 
+#define DEBUG_COAP_SERVICE
+
+#ifdef DEBUG_COAP_SERVICE
+#define DBG_COAP_S(...) debug_->debug( __VA_ARGS__)
+#else
+#define DBG_COAP_S(X)
+#endif
+
 namespace wiselib
 {
 
-template<typename Os_P, typename CoapRadio_P, typename String_T>
+template<typename Os_P, typename CoapRadio_P, typename String_T, typename Value_P>
 class CoapService
 {
 public:
@@ -14,10 +22,15 @@ public:
 	typedef Os_P Os;
 	typedef String_T string_t;
 	typedef CoapRadio_P Radio;
+	typedef Value_P value_t;
 	typedef typename Radio::ReceivedMessage coap_message_t;
 	typedef typename Radio::coap_packet_t coap_packet_t;
+	typedef typename Os::Debug Debug;
 	typedef delegate1<void, coap_message_t&> coapreceiver_delegate_t;
-	typedef CoapService<Os, Radio, string_t> self_type;
+	typedef CoapService<Os, Radio, string_t, value_t> self_type;
+	typedef delegate1<void, value_t> status_listener_delegate_t;
+	typedef vector_static<Os, status_listener_delegate_t, COAP_MAX_OBSERVERS> status_listener_vector_t;
+	typedef typename status_listener_vector_t::iterator listener_iterator_t;
 
 	~CoapService() { }
 
@@ -28,10 +41,14 @@ public:
 		request_callback_(coapreceiver_delegate_t()),
 		radio_reg_id_(0)
 	{
-		radio_reg_id_ = radio_->template reg_resource_callback<self_type, &self_type::receive_coap >( path_, this );
+
 	}
 
-	void receive_coap(coap_message_t &msg) {
+	void register_at_radio() {
+		radio_reg_id_ = radio_->template reg_resource_callback<self_type, &self_type::handle_request >( path_, this );
+	}
+
+	void handle_request(coap_message_t &msg) {
 
 		coap_packet_t & packet = msg.message();
 
@@ -52,6 +69,21 @@ public:
 		return radio_;
 	}
 
+	value_t status()
+	{
+		return status_;
+	}
+
+	void set_status(value_t newStatus)
+	{
+		status_ = newStatus;
+		// TODO notify status-change-listeners
+		for (listener_iterator_t it = status_listeners_.begin(); it != status_listeners_.end(); it++)
+		{
+			(*it)(status_);
+		}
+	}
+
 	inline bool handles_subresources()
 	{
 		return handle_subresources_;
@@ -60,6 +92,34 @@ public:
 	void set_handle_subresources(bool handle_subresources)
 	{
 		handle_subresources_ = handle_subresources;
+	}
+
+	template < class T, void (T::*TMethod)( typename self_type::value_t value) >
+	bool add_status_listener( T *callback)
+	{
+
+
+		if (status_listeners_.max_size() == status_listeners_.size())
+		{
+			DBG_COAP_S("COAP_SERVICE: MAX STATUS LISTENERS REACHED. WON'T ADD");
+			return false;
+		}
+		else
+		{
+			for (listener_iterator_t it = status_listeners_.begin();
+					it != status_listeners_.end(); it++)
+			{
+				// look if already registered
+				if (*it && (*it).obj_ptr() == callback )
+				{
+					return true;
+				}
+			}
+			status_listener_delegate_t delegate = status_listener_delegate_t::template from_method<T, TMethod>( callback );
+			status_listeners_.push_back(delegate);
+			DBG_COAP_S("COAP_SERVICE: Added status listener.");
+			return true;
+		}
 	}
 
 	void shutdown()
@@ -75,10 +135,13 @@ public:
 
 private:
 	Radio *radio_;
+	Debug *debug_;
+	value_t status_;
 	string_t path_;
 	int radio_reg_id_;
 	bool handle_subresources_;						// if set, parent also receives all subresource requests
 	coapreceiver_delegate_t request_callback_;
+	status_listener_vector_t status_listeners_;
 
 };
 

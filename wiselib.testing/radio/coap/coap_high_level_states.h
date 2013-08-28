@@ -57,6 +57,20 @@ struct number_state_resource
 };
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
+char* number_state_resource<Os_Model, T>::get_state(T sensor_value)
+{
+	for (size_t i=0; i<states.size(); i++)
+	{
+		number_state<T> curr = states.at(i);
+		if ( sensor_value >= curr.lower_bound && sensor_value < curr.upper_bound )
+		{
+			return curr.name;
+		}
+	}
+	return NULL;
+}
+// --------------------------------------------------------------------------
+template<typename Os_Model, typename T>
 char* number_state_resource<Os_Model, T>::to_json()
 {
 	uint16_t size = 32 * states.size() + 23 + 64;
@@ -80,7 +94,7 @@ char* number_state_resource<Os_Model, T>::to_json()
 }
 // --------------------------------------------------------------------------
 template<>
-char* number_state<int>::to_json() {
+char* number_state<uint16_t>::to_json() {
 	char* result = new char[32];
 	char l[4] = "{l:";
 	char h[4] = ",h:";
