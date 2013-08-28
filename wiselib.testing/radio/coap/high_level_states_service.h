@@ -4,8 +4,6 @@
 #include "radio/coap/coap_service.h"
 #include "radio/coap/coap_high_level_states.h"
 
-#define STATES_TEST_INTERVAL 10000
-
 namespace wiselib
 {
 
@@ -60,7 +58,6 @@ public:
 		coap_packet_t & packet = msg.message();
 		OpaqueData hl_data;
 
-
 		if ( packet.get_option(COAP_OPT_HL_STATE, hl_data) == coap_packet_t::SUCCESS )
 		{
 			switch ( packet.code() ) {
@@ -79,6 +76,8 @@ public:
 				default:
 					break;
 			}
+		} else {
+			request_callback_(msg);
 		}
 	}
 	// --------------------------------------------------------------------------
@@ -89,13 +88,25 @@ public:
 
 		if ( packet.get_option(COAP_OPT_HL_STATE, hl_data) == coap_packet_t::SUCCESS )
 		{
+
+			state_resource_t* resource;
+			if ( packet.uri_path() != service_->path() )
+			{
+				resource = find_state_resource( packet.uri_path() );
+			}
+
+
 			uint8_t type;
 			size_t length;
 			hl_data.get(&type, length);
 
 			switch (type) {
 				case HighLevelQueryType::STATE:
-					cout << "Aksing for State\n";
+					if ( resource != NULL)
+					{
+						const char* curr_state = resource->get_state( service_->status() );
+						service_->radio()->reply( msg, (uint8_t*) curr_state, strlen(curr_state) );
+					}
 					break;
 				case HighLevelQueryType::STATE_NUMBER:
 					cout << "Aksing for Number\n";
@@ -109,7 +120,6 @@ public:
 					}
 					else
 					{
-						state_resource_t* resource = find_state_resource( packet.uri_path() );
 						if ( resource == NULL )
 						{
 							// no such resource found
@@ -140,8 +150,6 @@ public:
 					service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_BAD_OPTION );
 					break;
 			}
-		} else {
-			request_callback_(msg);
 		}
 	}
 

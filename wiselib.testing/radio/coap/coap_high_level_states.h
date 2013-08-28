@@ -53,11 +53,11 @@ struct number_state_resource
 	vector_static<Os_Model, number_state<T>, COAP_MAX_HL_STATES> states;
 
 	char* to_json();
-	char* get_state(T sensor_value);
+	const char* get_state(T sensor_value);
 };
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
-char* number_state_resource<Os_Model, T>::get_state(T sensor_value)
+const char* number_state_resource<Os_Model, T>::get_state(T sensor_value)
 {
 	for (size_t i=0; i<states.size(); i++)
 	{
@@ -67,7 +67,7 @@ char* number_state_resource<Os_Model, T>::get_state(T sensor_value)
 			return curr.name;
 		}
 	}
-	return NULL;
+	return "undefined";
 }
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
