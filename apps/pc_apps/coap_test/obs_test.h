@@ -9,7 +9,7 @@ namespace wiselib
 {
 
 template<typename Os_P, typename CoapRadio_P, typename String_T>
-class ObsTest : public ObservableService<Os_P, CoapRadio_P, String_T, uint>
+class ObsTest
 {
 public:
 
@@ -19,34 +19,38 @@ public:
 	typedef typename Os::Debug Debug;
 	typedef typename Os::Timer Timer;
 	typedef ObsTest<Os, Radio, string_t> self_type;
+	typedef ObservableService<Os_P, CoapRadio_P, String_T, uint16_t> coap_obs_t;
+	typedef CoapService<Os_P, CoapRadio_P, String_T, uint16_t> coap_service_t;
 	typedef typename Radio::block_data_t block_data_t;
 	typedef typename Radio::ReceivedMessage coap_message_t;
 	typedef typename Radio::coap_packet_t coap_packet_t;
-	typedef struct ObservableService<Os_P, CoapRadio_P, String_T, uint>::message_data message_data;
+	typedef struct coap_obs_t::message_data message_data;
+
 	// --------------------------------------------------------------------------
 	ObsTest(string_t path, Radio& radio) :
-		ObservableService<Os_P, CoapRadio_P, String_T, uint>(path, 0, radio)
+		num_(100)
 	{
-		num_ = 100;
-		this->template set_request_callback<self_type, &self_type::handle_request>(this);
-		this->set_max_age(20);
-		this->set_update_notification_confirmable(false);
-		this->set_handle_subresources(false);
+		coap_service_ = new CoapService<Os, Radio, string_t, uint16_t>("observe", radio);
+		coap_service_->set_handle_subresources(false);
+		coap_service_->template set_request_callback<self_type, &self_type::handle_request>(this);
+
+		coap_observable_ = new coap_obs_t(path, *coap_service_);
+		coap_observable_->set_max_age(20);
+		coap_observable_->set_update_notification_confirmable(false);
+		coap_observable_->template set_request_callback<coap_service_t, &coap_service_t::handle_request>(coap_service_);
+		coap_observable_->register_at_radio();
+
+
+
+
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
 	}
 	// --------------------------------------------------------------------------
 	void gen_number(void*)
 	{
 		num_ = (++num_) % 1000;
-		this->set_status(num_);
+		coap_service_->set_status(num_);
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
-	}
-	// --------------------------------------------------------------------------
-	void convert(uint value, message_data& payload)
-	{
-		char data[10];
-		payload.length = sprintf(data, "%d", value);
-		payload.data = (block_data_t*) data;
 	}
 	// --------------------------------------------------------------------------
 	void handle_request(coap_message_t& msg)
@@ -57,9 +61,9 @@ public:
 			case COAP_CODE_GET:
 				{
 					char buffer[3];
-					int val_len = sprintf( buffer, "%d", this->status() );
+					int val_len = sprintf( buffer, "%d", coap_service_->status() );
 
-					this->radio()->reply( msg, (uint8_t *) buffer, val_len );
+					coap_service_->radio()->reply( msg, (uint8_t *) buffer, val_len );
 					break;
 				}
 			case COAP_CODE_POST:
@@ -80,6 +84,8 @@ private:
 	Timer *timer_;
 	Debug *debug_;
 	uint16_t num_;
+	coap_service_t *coap_service_;
+	coap_obs_t *coap_observable_;
 
 };
 
