@@ -46,6 +46,7 @@ public:
 		uint16_t last_mid;
 		OpaqueData token;
 		uint32_t timestamp;
+		value_t last_value;
 	};
 
 	struct message_data
@@ -68,7 +69,8 @@ public:
 		observe_counter_ (1),
 		max_age_notifications_(0),
 		radio_reg_id_(-1),
-		request_callback_(coapreceiver_delegate_t())
+		request_callback_(coapreceiver_delegate_t()),
+		status_(service.status())
 	{
 		service_->template add_status_listener<self_type, &self_type::set_status >( this );
 	}
@@ -225,6 +227,7 @@ private:
 			new_observer.token = token;
 			new_observer.last_mid = packet.msg_id();
 			new_observer.timestamp = time();
+			new_observer.last_value = status_;
 			observers_.push_back(new_observer);
 			DBG_OBS("OBSERVE: Added host %x", new_observer.host_id);
 			return true;
@@ -279,6 +282,13 @@ private:
 			sent = service_->radio()->template send_coap_gen_msg_id<self_type,
 					&self_type::got_ack>(observer.host_id, answer, this);
 		}
+
+		if ( sent != NULL )
+		{
+			observer.last_mid = sent->msg_id();
+			observer.timestamp = time();
+			observer.last_value = status_;
+		}
 		return sent;
 	}
 
@@ -290,6 +300,7 @@ private:
 
 	uint32_t time()
 	{
+		// TODO check if this makes sense
 		return clock_->seconds(clock_->time());
 	}
 
