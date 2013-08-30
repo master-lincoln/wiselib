@@ -6,6 +6,7 @@
 #include "coap_service.h"
 #include "coap_packet_static.h"
 #include "coap_service_static.h"
+#include "coap_conditional_observe.h"
 #include "coap.h"
 
 #define DEBUG_OBSERVE
@@ -18,6 +19,16 @@
 
 namespace wiselib
 {
+template<typename Value_T>
+struct observer<Value_T>
+{
+	node_id_t host_id;
+	uint16_t last_mid;
+	OpaqueData token;
+	uint32_t timestamp;
+	Value_T last_value;
+	coap_condition* condition;
+};
 
 template<typename Os_P, typename CoapRadio_P, typename String_T, typename Value_T>
 class ObservableService
@@ -40,22 +51,13 @@ public:
 	typedef ObservableService self_type;
 	typedef CoapService<Os, Radio, string_t, value_t> coap_service_t;
 
-	struct observer
-	{
-		node_id_t host_id;
-		uint16_t last_mid;
-		OpaqueData token;
-		uint32_t timestamp;
-		value_t last_value;
-	};
-
 	struct message_data
 	{
 		block_data_t* data;
 		size_t length;
 	};
 
-	typedef struct observer observer_t;
+	typedef struct observer<value_t> observer_t;
     typedef vector_static<Os, observer_t, COAP_MAX_OBSERVERS> observer_vector_t;
     typedef typename observer_vector_t::iterator observer_iterator_t;
 
@@ -85,16 +87,24 @@ public:
 
 		coap_packet_t & packet = msg.message();
 		uint32_t observe_value;
+		OpaqueData condition_raw;
+		coap_condition* condition;
 
 
 		if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
 			// we got an observe request, add new observer or update token respectively
 			// and send ACK with piggybacked sensor value
-			if ( add_observer(msg) )
+			if ( packet.get_option(COAP_OPT_CONDITION, condition_raw) == coap_packet_t::SUCCESS )
+			{
+				condition = & coap_parse_condition(condition_raw);
+			}
+
+			if ( add_observer(msg, condition) )
 			{
 				coap_packet_t *sent = send_notification(observers_.back(), true);
 				msg.set_ack_sent(sent);
 			}
+
 		}
 		else
 		{
@@ -145,7 +155,13 @@ public:
 		max_age_notifications_++;
 		for (observer_iterator_t it = observers_.begin(); it != observers_.end(); it++)
 		{
-			send_notification(*it);
+			if ( it->condition == NULL ||
+					coap_satisfies_condition( status_, it->condition, time() )
+				)
+			{
+				send_notification(*it);
+			}
+
 		}
 	}
 
@@ -198,7 +214,7 @@ private:
 	 * @param   msg   CoAP message with observe request
 	 * @param   host_id  Node ID of observer
 	 */
-	bool add_observer(coap_message_t& msg)
+	bool add_observer(coap_message_t& msg, coap_condition* condition)
 	{
 		coap_packet_t packet = msg.message();
 		OpaqueData token;
@@ -228,7 +244,9 @@ private:
 			new_observer.last_mid = packet.msg_id();
 			new_observer.timestamp = time();
 			new_observer.last_value = status_;
+			new_observer.condition = condition;
 			observers_.push_back(new_observer);
+
 			DBG_OBS("OBSERVE: Added host %x", new_observer.host_id);
 			return true;
 		}
