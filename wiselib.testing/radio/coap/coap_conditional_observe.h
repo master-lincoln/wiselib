@@ -13,11 +13,10 @@
 
 namespace wiselib {
 
-typedef observer observer_t;
-
-
 static const int COAP_MAX_HL_STATES = 10;
 static const int COAP_MAX_STATE_RESOURCES = 10;
+
+typedef struct observer<uint16_t> observer_t;
 
 // --------------------------------------------------------------------------
 namespace ConditionalObserveType {
@@ -57,35 +56,44 @@ namespace ConditionalObserveReliability {
 }
 typedef ConditionalObserveReliability::ObserveReliability condition_reliability_t;
 // --------------------------------------------------------------------------
+namespace ConditionalObserveValueType {
+	enum ObserveValueTye {
+		INTEGER,
+		DURATION_S,
+		FLOAT
+	};
+}
+typedef ConditionalObserveValueType::ObserveValueTye condition_value_type_t;
+// --------------------------------------------------------------------------
 struct coap_condition
 {
 	condition_type_t type;
 	condition_reliability_t reliability;
+	condition_value_type_t value_type;
 
 };
 
 template<typename V_Type, typename Value_T>
-bool coap_is_condition_met(
+bool coap_satisfies_condition(
 		Value_T new_value,
-		condition_type_t c_type,
-		V_Type c_value,
-		observer_t observer)
+		observer_t observer,
+		uint32_t time)
 {
-	switch (c_type) {
+	switch (observer.condition.type) {
 		case ConditionalObserveType::CANCELLATION:
 
 			break;
 		case ConditionalObserveType::TIMESERIES:
+			return observer.last_value != new_value;
 
-			break;
 		case ConditionalObserveType::MINIMUM_RESPONSE_TIME:
+			return ( observer.last_value != new_value ) && ( c_value <= ( time - observer.timestamp) );
 
-			break;
 		case ConditionalObserveType::MAXIMUM_RESPONSE_TIME:
+			return ( observer.last_value != new_value ) || ( c_value <= ( time - observer.timestamp ) );
 
-			break;
 		case ConditionalObserveType::STEP:
-			return abs<V_Type>(observer.last_value - new_value) > c_value;
+			return abs<V_Type>(observer.last_value - new_value) >= c_value;
 
 		case ConditionalObserveType::ALLVALUES_SMALLER:
 			return new_value < c_value;
@@ -100,12 +108,33 @@ bool coap_is_condition_met(
 			return new_value != c_value;
 
 		case ConditionalObserveType::PERIODIC:
+			return ( ( time - observer.timestamp ) >= c_value );
 
-			break;
 		default:
 			break;
 	}
 }
+
+coap_condition coap_parse_condition( OpaqueData raw )
+{
+	// TODO parse condition
+}
+
+/*
+template <typename message_t>
+coap_condition parse_message(message_t msg)
+{
+	value_t lower = 0 | (option[1]<<8) | option[2];
+	value_t upper = 0 | (option[3]<<8) | option[4];
+	char* name = (char*) option+5;
+	char* name_copy = new char[hl_data.length()-5+1];
+	memcpy(name_copy, name, hl_data.length()-5);
+	cout << "Created integer state:\"" << name << "\" lower: " << lower << " upper: " << upper << "\n";
+
+	const number_state<value_t> state = {lower,upper,name_copy};
+
+}
+*/
 
 template<typename T> inline const T abs(T const & x)
 {

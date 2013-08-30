@@ -195,7 +195,16 @@ public:
 				}
 				else if ( type == HighLevelCreationType::FLOAT )
 				{
-					// TODO float
+					value_t lower = (float) (0 | (option[1]<<8) | option[2]);
+					value_t upper = (float) (0 | (option[3]<<8) | option[4]);
+					char* name = (char*) option+5;
+					char* name_copy = new char[hl_data.length()-5+1];
+					memcpy(name_copy, name, hl_data.length()-5);
+					cout << "Created float state:\"" << name << "\" lower: " << lower << " upper: " << upper << "\n";
+
+					const number_state<value_t> state = {lower,upper,name_copy};
+
+					hls_res.states.push_back(state);
 				}
 			}
 
