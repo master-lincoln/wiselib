@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 	Os::Debug::self_pointer_t debug_;
 	Os::Rand::self_pointer_t rand_;
 
-	typedef wiselib::StaticString string_t;
+	typedef StaticString string_t;
 
 	debug_ = new Os::Debug();
 	timer_ = new Os::Timer();
@@ -98,19 +98,19 @@ int main(int argc, char** argv) {
 	ToUpperCase<coap_radio_t> uppercaser = ToUpperCase<coap_radio_t>();
 	uppercaser.init(cradio_);
 
-	Calculator<Os, coap_radio_t, wiselib::StaticString> calculator = Calculator<Os, coap_radio_t, wiselib::StaticString>();
+	Calculator<Os, coap_radio_t, StaticString> calculator = Calculator<Os, coap_radio_t, StaticString>();
 	calculator.init(cradio_);
 
-	NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString> generator = NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>();
+	NumberGenerator<Os, coap_radio_t, Os::Timer, StaticString> generator = NumberGenerator<Os, coap_radio_t, Os::Timer, StaticString>();
 	generator.init(cradio_);
 
-	wiselib::StaticString to_upper_path = wiselib::StaticString("touppercase");
-	wiselib::StaticString calculator_path = wiselib::StaticString("calculator");
-	wiselib::StaticString generator_path = wiselib::StaticString("generator");
+	StaticString to_upper_path = StaticString("touppercase");
+	StaticString calculator_path = StaticString("calculator");
+	StaticString generator_path = StaticString("generator");
 
 	//int to_upper_id = cradio_.reg_resource_callback< ToUpperCase<coap_radio_t>, &ToUpperCase<coap_radio_t>::receive_coap >( to_upper_path, &uppercaser );
 	//int calc_id = cradio_.reg_resource_callback< Calculator<Os, coap_radio_t, wiselib::StaticString>, &Calculator<Os, coap_radio_t, wiselib::StaticString>::receive_coap >( calculator_path, &calculator );
-	int gen_id = cradio_.reg_resource_callback< NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>, &NumberGenerator<Os, coap_radio_t, Os::Timer, wiselib::StaticString>::receive_coap >( generator_path, &generator );
+	int gen_id = cradio_.reg_resource_callback< NumberGenerator<Os, coap_radio_t, Os::Timer, StaticString>, &NumberGenerator<Os, coap_radio_t, Os::Timer, StaticString>::receive_coap >( generator_path, &generator );
 
 
 	// --------------------------------------------------------------------------

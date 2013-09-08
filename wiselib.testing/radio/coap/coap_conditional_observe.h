@@ -11,12 +11,11 @@
 #include "util/pstl/vector_static.h"
 #include "observable_service.h"
 
+#define DEBUG_OBSERVE
+
 namespace wiselib {
 
-static const int COAP_MAX_HL_STATES = 10;
-static const int COAP_MAX_STATE_RESOURCES = 10;
-
-typedef struct observer<uint16_t> observer_t;
+static const int COAP_MAX_CONDITIONS = 10;
 
 // --------------------------------------------------------------------------
 namespace ConditionalObserveType {
@@ -57,89 +56,182 @@ namespace ConditionalObserveReliability {
 typedef ConditionalObserveReliability::ObserveReliability condition_reliability_t;
 // --------------------------------------------------------------------------
 namespace ConditionalObserveValueType {
-	enum ObserveValueTye {
+	enum ObserveValueType {
 		INTEGER,
 		DURATION_S,
 		FLOAT
 	};
 }
-typedef ConditionalObserveValueType::ObserveValueTye condition_value_type_t;
+typedef ConditionalObserveValueType::ObserveValueType condition_value_type_t;
 // --------------------------------------------------------------------------
 struct coap_condition
 {
 	condition_type_t type;
 	condition_reliability_t reliability;
 	condition_value_type_t value_type;
-
+	uint32_t condition_value_raw;
 };
 
-template<typename V_Type, typename Value_T>
+template<typename CValue_T>
+CValue_T convert_condition_value(uint32_t raw, ConditionalObserveValueType::ObserveValueType type)
+{
+	if ( type == ConditionalObserveValueType::DURATION_S ) {
+		// convert from duration type defined in Appendix C.2 of draft-bormann-coap-misc-13
+		const uint8_t N = 8;
+		const uint8_t E = 4;
+		const uint8_t HIBIT = (1 << (N - 1));
+		const uint8_t EMASK = ((1 << E) - 1);
+		const uint8_t MMASK = ((1 << N) - 1 - EMASK);
+		return (raw < HIBIT ? raw : (raw & MMASK) << (raw & EMASK));
+	}
+	return (CValue_T) raw;
+}
+
+template<>
+float convert_condition_value(uint32_t raw, ConditionalObserveValueType::ObserveValueType type)
+{
+	if ( type == ConditionalObserveValueType::FLOAT )
+	{
+		// TODO this is probably not the float representation we want
+		float f;
+		memcpy(&f, &raw, sizeof(f));
+		return f;
+	}
+	else
+	{
+		// TODO error message in debug
+		return -1;
+	}
+}
+
+
+template<typename Value_T, typename Observer_T, typename CValue_T>
 bool coap_satisfies_condition(
 		Value_T new_value,
-		observer_t observer,
+		Observer_T& observer,
+		coap_condition& condition,
 		uint32_t time)
 {
-	switch (observer.condition.type) {
-		case ConditionalObserveType::CANCELLATION:
+	typedef Value_T value_t;
 
+	CValue_T condition_value = convert_condition_value<CValue_T>(condition.condition_value_raw, condition.value_type);
+	bool satisfied = false;
+
+	switch (condition.type) {
+		case ConditionalObserveType::CANCELLATION:
+			// TODO implement cancellation
 			break;
+
 		case ConditionalObserveType::TIMESERIES:
-			return observer.last_value != new_value;
+			satisfied = observer.last_value != new_value;
+			break;
 
 		case ConditionalObserveType::MINIMUM_RESPONSE_TIME:
-			return ( observer.last_value != new_value ) && ( c_value <= ( time - observer.timestamp) );
+			// TODO what if time wraps?
+			satisfied = ( observer.last_value != new_value ) && ( condition_value <= ( time - observer.timestamp) );
+			break;
 
 		case ConditionalObserveType::MAXIMUM_RESPONSE_TIME:
-			return ( observer.last_value != new_value ) || ( c_value <= ( time - observer.timestamp ) );
+			satisfied = ( observer.last_value != new_value ) || ( condition_value <= ( time - observer.timestamp ) );
+			break;
 
 		case ConditionalObserveType::STEP:
-			return abs<V_Type>(observer.last_value - new_value) >= c_value;
+			satisfied = abs(observer.last_value - new_value) >= condition_value;
+			//printf("COND_OBS: STEP from %d to %d is %s than %d\n",
+			//			observer.last_value,
+			//			new_value,
+			//			( satisfied ? "bigger" : "smaller" ),
+			//			condition_value);
+			break;
 
 		case ConditionalObserveType::ALLVALUES_SMALLER:
-			return new_value < c_value;
+			satisfied = new_value < condition_value;
+			break;
 
 		case ConditionalObserveType::ALLVALUES_GREATER:
-			return new_value > c_value;
+			satisfied = new_value > condition_value;
+			break;
 
 		case ConditionalObserveType::VALUE_EQUALS:
-			return new_value == c_value;
+			satisfied = new_value == condition_value;
+			break;
 
 		case ConditionalObserveType::VALUE_DIFFERS:
-			return new_value != c_value;
+			satisfied = new_value != condition_value;
+			break;
 
 		case ConditionalObserveType::PERIODIC:
-			return ( ( time - observer.timestamp ) >= c_value );
-
-		default:
+			satisfied = ( ( time - observer.timestamp ) >= condition_value );
 			break;
 	}
+	return satisfied;
+}
+
+template<typename condition_list_t, typename Value_T, typename Observer_T>
+bool coap_satisfies_conditions(
+		Value_T new_value,
+		Observer_T& observer,
+		uint32_t time)
+{
+	bool all_satisfied = true;
+
+	typename condition_list_t::iterator it = observer.condition_list.begin();
+	for(; it != observer.condition_list.end(); ++it)
+	{
+		switch ( (*it).value_type)
+		{
+		case ConditionalObserveValueType::FLOAT:
+			all_satisfied &= coap_satisfies_condition<Value_T, Observer_T, float>(new_value, observer, *it, time);
+			break;
+		default:
+			all_satisfied &= coap_satisfies_condition<Value_T, Observer_T, uint32_t>(new_value, observer, *it, time);
+			break;
+		}
+
+	}
+
+	return all_satisfied;
 }
 
 coap_condition coap_parse_condition( OpaqueData raw )
 {
-	// TODO parse condition
+	uint8_t *data = raw.value();
+	coap_condition condition;
+
+	uint8_t temp;
+	uint32_t value = 0;
+
+	temp = data[0];
+	condition.type = (ConditionalObserveType::ConditionType) (temp >> 3);
+
+	temp =  temp << 5;
+	condition.reliability = (ConditionalObserveReliability::ObserveReliability) (temp >> 7);
+
+	temp = temp << 1;
+	condition.value_type = (ConditionalObserveValueType::ObserveValueType) (temp >> 6);
+
+	for(size_t i = 1; i < raw.length(); i++)
+	{
+		value = value << 8;
+		value = value | data[i];
+	}
+
+	condition.condition_value_raw = value;
+
+	printf("COND_OBS: Generated condition: TYPE[%d] R[%d] V[%d] VAL[%d]\n",
+			condition.type,
+			condition.reliability,
+			condition.value_type,
+			condition.condition_value_raw);
+
+	return condition;
 }
-
-/*
-template <typename message_t>
-coap_condition parse_message(message_t msg)
-{
-	value_t lower = 0 | (option[1]<<8) | option[2];
-	value_t upper = 0 | (option[3]<<8) | option[4];
-	char* name = (char*) option+5;
-	char* name_copy = new char[hl_data.length()-5+1];
-	memcpy(name_copy, name, hl_data.length()-5);
-	cout << "Created integer state:\"" << name << "\" lower: " << lower << " upper: " << upper << "\n";
-
-	const number_state<value_t> state = {lower,upper,name_copy};
-
-}
-*/
 
 template<typename T> inline const T abs(T const & x)
 {
     return ( x<0 ) ? -x : x;
 }
 
+}
 
 #endif /* COAP_CONDITIONAL_OBSERVE_H_ */
