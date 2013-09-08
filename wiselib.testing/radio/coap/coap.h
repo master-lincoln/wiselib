@@ -87,6 +87,7 @@ enum CoapOptionNum
 	COAP_OPT_IF_MATCH = 13,
 	COAP_OPT_FENCEPOST = 14,
 	COAP_OPT_URI_QUERY = 15,
+	COAP_OPT_CONDITION = 18,
 	COAP_OPT_HL_STATE = 23, // TODO Option number for High-Level States
 	COAP_OPT_IF_NONE_MATCH = 21
 };
@@ -200,7 +201,7 @@ static const uint8_t COAP_OPTION_FORMAT[COAP_OPTION_ARRAY_SIZE] =
 	COAP_FORMAT_STRING,			// 15: COAP_OPT_URI_QUERY
 	COAP_FORMAT_UNKNOWN,		// 16: not in use
 	COAP_FORMAT_UNKNOWN,		// 17: not in use
-	COAP_FORMAT_UNKNOWN,		// 18: not in use
+	COAP_FORMAT_OPAQUE	,		// 18: COAP_OPT_CONDITION
 	COAP_FORMAT_UNKNOWN,		// 19: not in use
 	COAP_FORMAT_UNKNOWN,		// 20: not in use
 	COAP_FORMAT_NONE,			// 21: COAP_OPT_IF_NONE_MATCH
@@ -228,7 +229,7 @@ static const bool COAP_OPT_CAN_OCCUR_MULTIPLE[COAP_OPTION_ARRAY_SIZE] =
 	true,			// 15: COAP_OPT_URI_QUERY
 	false,			// 16: not in use
 	false,			// 17: not in use
-	false,			// 18: not in use
+	true,			// 18: COAP_OPT_CONDITION
 	false,			// 19: not in use
 	false,			// 20: not in use
 	false,			// 21: COAP_OPT_IF_NONE_MATCH

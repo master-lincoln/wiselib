@@ -24,7 +24,7 @@ public:
 		return *this;
 	}
 
-	FixedStringResource( Radio& radio, wiselib::StaticString path, wiselib::StaticString text )
+	FixedStringResource( Radio& radio, StaticString path, StaticString text )
 	{
 		radio_ = &radio;
 		text_ = text;
@@ -50,7 +50,7 @@ public:
 
 private:
 	Radio *radio_;
-	wiselib::StaticString text_;
+	StaticString text_;
 };
 
 }
