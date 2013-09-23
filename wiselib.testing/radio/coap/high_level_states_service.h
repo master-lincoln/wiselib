@@ -1,11 +1,133 @@
+/***************************************************************************
+ ** This file is part of the generic algorithm library Wiselib.           **
+ ** Copyright (C) 2008,2009 by the Wisebed (www.wisebed.eu) project.      **
+ **                                                                       **
+ ** The Wiselib is free software: you can redistribute it and/or modify   **
+ ** it under the terms of the GNU Lesser General Public License as        **
+ ** published by the Free Software Foundation, either version 3 of the    **
+ ** License, or (at your option) any later version.                       **
+ **                                                                       **
+ ** The Wiselib is distributed in the hope that it will be useful,        **
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of        **
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         **
+ ** GNU Lesser General Public License for more details.                   **
+ **                                                                       **
+ ** You should have received a copy of the GNU Lesser General Public      **
+ ** License along with the Wiselib.                                       **
+ ** If not, see <http://www.gnu.org/licenses/>.                           **
+ ***************************************************************************/
+
 #ifndef STATES_SERVICE_H_
 #define STATES_SERVICE_H_
 
 #include "radio/coap/coap_service.h"
 #include "radio/coap/coap_high_level_states.h"
 
+#define DEBUG_HLS
+
+#ifdef DEBUG_HLS
+#define DBG_HLS(...) debug_->debug( __VA_ARGS__)
+#else
+#define DBG_HLS(...)
+#endif
+
 namespace wiselib
 {
+
+/**
+ * This namespace is just to circumvent c++ templates' lack to specialize funtions in class scope.
+ * C++03 Standard says in 14.7.3 p18: "In an explicit specialization declaration for a member of a
+ * class template or a member template that appears in namespace scope, the member template and some
+ * of its enclosing class templates may remain unspecialized, except that the declaration shall not
+ * explicitly specialize a class member template if its enclosing class templates are not explicitly
+ * specialized as well."
+ */
+namespace specialized
+{
+	// TODO hand over debug_ object
+	template<typename T>
+	number_state<T> create_state_from_option(OpaqueData hl_data)
+	{
+		return NULL;
+	}
+	template<>
+	number_state<const char*> create_state_from_option(OpaqueData hl_data)
+	{
+		uint8_t * option = hl_data.value();
+		uint8_t type = option[0];
+
+		if ( type != HighLevelCreationType::STRING )
+		{
+			//DBG_HLS("HLS: Error! Only STRING states supported!\n");
+			number_state<const char*> undefined = {"","undefined"};
+			return undefined;
+		}
+
+		// TODO how to parse string without length? Possible error in specification!
+		char* value = (char*) option+1;
+		char* value_copy = new char[128];
+		memcpy(value_copy, value, 128);
+
+		char* name = (char*) option+129;
+		char* name_copy = new char[128];
+		memcpy(name_copy, name, 128);
+
+		//DBG_HLS("Created integer state:\"%s\" lower: %d upper: %d \n", name, lower, upper);
+		number_state<const char*> state = {value_copy,name_copy};
+		return state;
+	}
+	// --------------------------------------------------------------------------
+	template<>
+	number_state<uint16_t> create_state_from_option(OpaqueData hl_data)
+	{
+		uint8_t * option = hl_data.value();
+		uint8_t type = option[0];
+
+		if ( type != HighLevelCreationType::INTEGER )
+		{
+			//DBG_HLS("HLS: Error! Only INTEGER states supported!\n");
+			number_state<uint16_t> undefined = {0,0,"undefined"};
+			return undefined;
+		}
+
+		uint16_t lower = 0 | (option[1]<<8) | option[2];
+		uint16_t upper = 0 | (option[3]<<8) | option[4];
+
+		char* name = (char*) option+5;
+		char* name_copy = new char[hl_data.length()-5+1];
+		memcpy(name_copy, name, hl_data.length()-5);
+
+		//DBG_HLS("Created integer state:\"%s\" lower: %d upper: %d \n", name, lower, upper);
+		number_state<uint16_t> state = {lower,upper,name_copy};
+		return state;
+	}
+	// --------------------------------------------------------------------------
+	template<>
+	number_state<float> create_state_from_option(OpaqueData hl_data)
+	{
+		uint8_t * option = hl_data.value();
+		uint8_t type = option[0];
+
+		if ( type != HighLevelCreationType::FLOAT )
+		{
+			//DBG_HLS("HLS: Error! Only FLOAT states supported!\n");
+			number_state<float> undefined = {0,0,"undefined"};
+			return undefined;
+		}
+
+		// FIXME implement proper float representation
+		float lower = (float) (0 | (option[1]<<8) | option[2]);
+		float upper = (float) (0 | (option[3]<<8) | option[4]);
+		char* name = (char*) option+5;
+		char* name_copy = new char[hl_data.length()-5+1];
+		memcpy(name_copy, name, hl_data.length()-5);
+
+		//DBG_HLS("Created float state:\"%s\" lower: %f upper: %f \n",name, lower, upper);
+		number_state<float> state = {lower,upper,name_copy};
+		return state;
+	}
+}
+
 
 template<typename Os_P, typename CoapRadio_P, typename String_T, typename Value_T>
 class HLStatesService
@@ -16,6 +138,7 @@ public:
 	typedef Os_P Os;
 	typedef String_T string_t;
 	typedef Value_T value_t;
+	typedef typename Os::size_t size_t;
 	typedef typename Os::Debug Debug;
 	typedef typename Os::Timer Timer;
 	typedef typename Os::Rand Rand;
@@ -31,27 +154,28 @@ public:
 	typedef vector_static<Os, coap_service_t*, COAP_MAX_STATE_RESOURCES> state_resources_services_vector_t;
 
 	// --------------------------------------------------------------------------
-	HLStatesService(coap_service_t& service) :
-		num_(1),
+	HLStatesService(coap_service_t& service, value_t start_value = NULL) :
+		num_(start_value),
 		status_(num_),
 		service_(&service),
 		radio_reg_id_(-1)
 	{
 		rand_->srand( service_->radio()->id() );
 	}
-
+	// --------------------------------------------------------------------------
 	void register_at_radio()
 	{
 		radio_reg_id_ = service_->radio()->template reg_resource_callback<self_type, &self_type::handle_request >( service_->path(), this );
 	}
-
+	// --------------------------------------------------------------------------
 	void shutdown()
 	{
 		if ( radio_reg_id_ != -1 )
 			service_->radio().unreg_resource_callback( radio_reg_id_ );
 	}
-
-	void dummy(coap_message_t& msg) {}
+	// --------------------------------------------------------------------------
+	void dummy(coap_message_t& msg)
+	{}
 	// --------------------------------------------------------------------------
 	void handle_request(coap_message_t& msg)
 	{
@@ -68,16 +192,34 @@ public:
 					handle_post_request(msg);
 					break;
 				case COAP_CODE_PUT:
-					// TODO send 4.05
+					service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_METHOD_NOT_ALLOWED );
 					break;
 				case COAP_CODE_DELETE:
-					cout << "DELETE Request\n";
+					handle_delete_request(msg);
 					break;
 				default:
 					break;
 			}
 		} else {
 			request_callback_(msg);
+		}
+	}
+	// --------------------------------------------------------------------------
+	void handle_delete_request(coap_message_t& msg)
+	{
+		coap_packet_t & packet = msg.message();
+		OpaqueData hl_data;
+
+		if (	packet.uri_path() != service_->path() &&
+				packet.get_option(COAP_OPT_HL_STATE, hl_data) == coap_packet_t::SUCCESS )
+		{
+			state_resource_t* resource;
+			resource = find_state_resource( packet.uri_path() );
+			if ( resource != NULL )
+			{
+				DBG_HLS("DELETE Request\n");
+				service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_DELETED );
+			}
 		}
 	}
 	// --------------------------------------------------------------------------
@@ -95,7 +237,6 @@ public:
 				resource = find_state_resource( packet.uri_path() );
 			}
 
-
 			uint8_t type;
 			size_t length;
 			hl_data.get(&type, length);
@@ -109,10 +250,10 @@ public:
 					}
 					break;
 				case HighLevelQueryType::STATE_NUMBER:
-					cout << "Aksing for Number\n";
+					// TODO state number
+					DBG_HLS("Aksing for Number");
 					break;
 				case HighLevelQueryType::STATE_DESCRIPTION:
-					cout << "Aksing for Description\n";
 					char* json;
 					if ( packet.uri_path() == service_->path() )
 					{
@@ -127,7 +268,7 @@ public:
 							int len = 0;
 							char error_description_str[COAP_ERROR_STRING_LEN];
 							len = sprintf(error_description_str, "Resource \"%s\" not found.", packet.uri_path().c_str() );
-							cout << "Couldn't find " << packet.uri_path().c_str() << "\n";
+							DBG_HLS("Couldn't find %s \n", packet.uri_path().c_str());
 							error_description = error_description_str;
 							CoapContentType ctype = COAP_CONTENT_TYPE_TEXT_PLAIN;
 							service_->radio()->reply( msg, (uint8_t*) error_description, len, COAP_CODE_NOT_FOUND, ctype );
@@ -140,7 +281,7 @@ public:
 						}
 
 					}
-					cout << "Message: " << json << "\n";
+					DBG_HLS("HLS: Message= %s\n",json);
 					// TODO Content Type
 					service_->radio()->reply( msg, (uint8_t*) json, strlen(json) );
 
@@ -152,7 +293,6 @@ public:
 			}
 		}
 	}
-
 	// --------------------------------------------------------------------------
 	/**
 	 * \brief Handles POST requests with High-Level-States options. Registers a new sub-resource
@@ -173,37 +313,23 @@ public:
 			hls_res.path = gen_random(5); // TODO make sure this is unique
 			string_t full_path = service_->path().append("/").append(hls_res.path);
 			int radio_reg_id_ = service_->radio()->template reg_resource_callback<self_type, &self_type::dummy >( full_path, this );
-			cout << "Creating new High Level State Resource at path: " << full_path.c_str() << "\n";
+			DBG_HLS("Creating new High Level State Resource at path: %s \n", full_path.c_str());
 
 			for(; it != hl_list.end(); ++it)
 			{
 				OpaqueData hl_data = (*it);
 				uint8_t * option = hl_data.value();
 				uint8_t type = option[0];
-				if ( type == HighLevelCreationType::INTEGER )
+
+				number_state<value_t> state = create_state_from_option(*it);
+				if ( strcmp(state.name, "undefined") )
 				{
-					value_t lower = 0 | (option[1]<<8) | option[2];
-					value_t upper = 0 | (option[3]<<8) | option[4];
-					char* name = (char*) option+5;
-					char* name_copy = new char[hl_data.length()-5+1];
-					memcpy(name_copy, name, hl_data.length()-5);
-					cout << "Created integer state:\"" << name << "\" lower: " << lower << " upper: " << upper << "\n";
-
-					const number_state<value_t> state = {lower,upper,name_copy};
-
-					hls_res.states.push_back(state);
+					// Types don't match...send 4.02
+					service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_BAD_OPTION );
+					return;
 				}
-				else if ( type == HighLevelCreationType::FLOAT )
+				if ( !already_mapped(state) )
 				{
-					value_t lower = (float) (0 | (option[1]<<8) | option[2]);
-					value_t upper = (float) (0 | (option[3]<<8) | option[4]);
-					char* name = (char*) option+5;
-					char* name_copy = new char[hl_data.length()-5+1];
-					memcpy(name_copy, name, hl_data.length()-5);
-					cout << "Created float state:\"" << name << "\" lower: " << lower << " upper: " << upper << "\n";
-
-					const number_state<value_t> state = {lower,upper,name_copy};
-
 					hls_res.states.push_back(state);
 				}
 			}
@@ -215,7 +341,7 @@ public:
 			service_->radio()->reply( msg, 0, 0, COAP_CODE_CREATED, COAP_CONTENT_TYPE_APPLICATION_JSON, repl );
 		}
 	}
-
+	// --------------------------------------------------------------------------
 	/**
 	 * \brief Converts all State-Resources to a description containing paths and mappings in JSON
 	 * 			format
@@ -244,12 +370,12 @@ public:
 
 		return buffer;
 	}
-
+	// --------------------------------------------------------------------------
 	void set_status(value_t newStatus)
 	{
 		status_ = newStatus;
 	}
-
+	// --------------------------------------------------------------------------
 	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
 	void set_request_callback( T *callback )
 	{
@@ -258,6 +384,7 @@ public:
 
 private:
 	Rand *rand_;
+	Debug *debug_;
 	coap_service_t *service_;
 	value_t num_;
 	value_t status_;
@@ -266,7 +393,7 @@ private:
 	state_resources_vector_t state_resources_;
 	state_resources_services_vector_t state_resources_services_;
 
-
+	// --------------------------------------------------------------------------
 	/**
 	 * \brief Find a State-Resource in the list of all registered State-Resources by a given URI-path
 	 * @param uri_path
@@ -285,20 +412,22 @@ private:
 		}
 		return NULL;
 	}
-
+	// --------------------------------------------------------------------------
 	/**
 	 * \brief Generates a random alphanumeric string with a given length.
 	 * @param len length of random string
 	 * @return Null terminated char array containing the generated string
 	 */
-	char * gen_random(const size_t len) {
+	char * gen_random(const size_t len)
+	{
 		char* s = new char[len+1];
 		static const char alphanum[] =
 			"0123456789"
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			"abcdefghijklmnopqrstuvwxyz";
 
-		for (size_t i = 0; i < len; ++i) {
+		for (size_t i = 0; i < len; ++i)
+		{
 			uint32_t ran = (*rand_)( sizeof(alphanum)-1 );
 			s[i] = (char) alphanum[ran];
 		}
@@ -306,6 +435,21 @@ private:
 		s[len] = 0;
 		return s;
 	}
+	// --------------------------------------------------------------------------
+	number_state<value_t> create_state_from_option(OpaqueData hl_data)
+	{
+		return specialized::create_state_from_option<value_t>(hl_data);
+	}
+	// --------------------------------------------------------------------------
+	/**
+	 * \brief Checks if a value from a given state is already mapped by another state in the list
+	 */
+	bool already_mapped(number_state<value_t> state)
+	{
+		// TODO check if parts of this state are already mapped by another in the list
+		return false;
+	}
+
 };
 
 }

@@ -40,9 +40,7 @@ public:
 		coap_observable_->template set_request_callback<coap_service_t, &coap_service_t::handle_request>(coap_service_);
 		coap_observable_->register_at_radio();
 
-
-
-
+		// generate fake data
 		timer_->template set_timer<self_type, &self_type::gen_number>(OBS_TEST_INTERVAL, this, 0);
 	}
 	// --------------------------------------------------------------------------
@@ -67,13 +65,13 @@ public:
 					break;
 				}
 			case COAP_CODE_POST:
-				cout << "POST Request\n";
+				debug_->debug("POST Request");
 				break;
 			case COAP_CODE_PUT:
-				cout << "PUT Request\n";
+				debug_->debug("PUT Request");
 				break;
 			case COAP_CODE_DELETE:
-				cout << "DELETE Request\n";
+				debug_->debug("DELETE Request");
 				break;
 			default:
 				break;
