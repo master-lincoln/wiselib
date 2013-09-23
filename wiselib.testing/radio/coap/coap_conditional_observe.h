@@ -1,9 +1,21 @@
-/*
- * coap_high_level_states.h
- *
- *  Created on: Jul 23, 2013
- *      Author: wiselib
- */
+/***************************************************************************
+ ** This file is part of the generic algorithm library Wiselib.           **
+ ** Copyright (C) 2008,2009 by the Wisebed (www.wisebed.eu) project.      **
+ **                                                                       **
+ ** The Wiselib is free software: you can redistribute it and/or modify   **
+ ** it under the terms of the GNU Lesser General Public License as        **
+ ** published by the Free Software Foundation, either version 3 of the    **
+ ** License, or (at your option) any later version.                       **
+ **                                                                       **
+ ** The Wiselib is distributed in the hope that it will be useful,        **
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of        **
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         **
+ ** GNU Lesser General Public License for more details.                   **
+ **                                                                       **
+ ** You should have received a copy of the GNU Lesser General Public      **
+ ** License along with the Wiselib.                                       **
+ ** If not, see <http://www.gnu.org/licenses/>.                           **
+ ***************************************************************************/
 
 #ifndef COAP_CONDITIONAL_OBSERVE_H_
 #define COAP_CONDITIONAL_OBSERVE_H_
@@ -67,7 +79,7 @@ typedef ConditionalObserveValueType::ObserveValueType condition_value_type_t;
 struct coap_condition
 {
 	condition_type_t type;
-	condition_reliability_t reliability;
+	condition_reliability_t reliable;
 	condition_value_type_t value_type;
 	uint32_t condition_value_raw;
 };
@@ -127,7 +139,7 @@ bool coap_satisfies_condition(
 			break;
 
 		case ConditionalObserveType::MINIMUM_RESPONSE_TIME:
-			// TODO what if time wraps?
+			// FIXME what if time wraps?
 			satisfied = ( observer.last_value != new_value ) && ( condition_value <= ( time - observer.timestamp) );
 			break;
 
@@ -137,11 +149,6 @@ bool coap_satisfies_condition(
 
 		case ConditionalObserveType::STEP:
 			satisfied = abs(observer.last_value - new_value) >= condition_value;
-			//printf("COND_OBS: STEP from %d to %d is %s than %d\n",
-			//			observer.last_value,
-			//			new_value,
-			//			( satisfied ? "bigger" : "smaller" ),
-			//			condition_value);
 			break;
 
 		case ConditionalObserveType::ALLVALUES_SMALLER:
@@ -205,7 +212,7 @@ coap_condition coap_parse_condition( OpaqueData raw )
 	condition.type = (ConditionalObserveType::ConditionType) (temp >> 3);
 
 	temp =  temp << 5;
-	condition.reliability = (ConditionalObserveReliability::ObserveReliability) (temp >> 7);
+	condition.reliable = (ConditionalObserveReliability::ObserveReliability) (temp >> 7);
 
 	temp = temp << 1;
 	condition.value_type = (ConditionalObserveValueType::ObserveValueType) (temp >> 6);
@@ -218,12 +225,14 @@ coap_condition coap_parse_condition( OpaqueData raw )
 
 	condition.condition_value_raw = value;
 
+	// TODO proper debugging
+	/*
 	printf("COND_OBS: Generated condition: TYPE[%d] R[%d] V[%d] VAL[%d]\n",
 			condition.type,
-			condition.reliability,
+			condition.reliable,
 			condition.value_type,
 			condition.condition_value_raw);
-
+	*/
 	return condition;
 }
 

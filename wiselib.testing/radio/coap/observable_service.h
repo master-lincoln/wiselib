@@ -1,3 +1,22 @@
+/***************************************************************************
+ ** This file is part of the generic algorithm library Wiselib.           **
+ ** Copyright (C) 2008,2009 by the Wisebed (www.wisebed.eu) project.      **
+ **                                                                       **
+ ** The Wiselib is free software: you can redistribute it and/or modify   **
+ ** it under the terms of the GNU Lesser General Public License as        **
+ ** published by the Free Software Foundation, either version 3 of the    **
+ ** License, or (at your option) any later version.                       **
+ **                                                                       **
+ ** The Wiselib is distributed in the hope that it will be useful,        **
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of        **
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         **
+ ** GNU Lesser General Public License for more details.                   **
+ **                                                                       **
+ ** You should have received a copy of the GNU Lesser General Public      **
+ ** License along with the Wiselib.                                       **
+ ** If not, see <http://www.gnu.org/licenses/>.                           **
+ ***************************************************************************/
+
 #ifndef OBSERVABLE_SERVICE_H_
 #define OBSERVABLE_SERVICE_H_
 
@@ -9,7 +28,7 @@
 #include "coap_conditional_observe.h"
 #include "coap.h"
 
-#define DEBUG_OBSERVE
+//#define DEBUG_OBSERVE
 
 #ifdef DEBUG_OBSERVE
 #define DBG_OBS(...) debug_->debug( __VA_ARGS__)
@@ -20,15 +39,16 @@
 namespace wiselib
 {
 
-template<typename Os_P, typename CoapRadio_P, typename String_T, typename Value_T>
+template<typename Os_P, typename CoapRadio_P, typename String_P, typename Value_P>
 class ObservableService
 {
 public:
 
 	typedef Os_P Os;
-	typedef String_T string_t;
-	typedef Value_T value_t;
+	typedef String_P string_t;
+	typedef Value_P value_t;
 	typedef CoapRadio_P Radio;
+	typedef typename Os::size_t size_t;
 	typedef typename Os::Debug Debug;
 	typedef typename Os::Timer Timer;
 	typedef typename Os::Clock Clock;
@@ -40,32 +60,34 @@ public:
 	typedef delegate1<void, coap_message_t&> coapreceiver_delegate_t;
 	typedef ObservableService self_type;
 	typedef CoapService<Os, Radio, string_t, value_t> coap_service_t;
-
+	// --------------------------------------------------------------------------
 	struct message_data
 	{
 		block_data_t* data;
 		size_t length;
 	};
 
-
+	// --------------------------------------------------------------------------
 	struct observer
 	{
 		node_id_t host_id;
 		uint16_t last_mid;
 		OpaqueData token;
 		uint32_t timestamp;
-		Value_T last_value;
+		value_t last_value;
 		list_static<Os, coap_condition, COAP_MAX_CONDITIONS> condition_list;
-	};
 
+		bool operator==(const observer& rhs) const
+		{
+		    return host_id == rhs.host_id;
+		}
+	};
+	// --------------------------------------------------------------------------
 	typedef struct observer observer_t;
     typedef vector_static<Os, observer_t, COAP_MAX_OBSERVERS> observer_vector_t;
     typedef typename observer_vector_t::iterator observer_iterator_t;
-
-
-	virtual ~ObservableService() { }
-
-	ObservableService(string_t path, coap_service_t& service):
+	// --------------------------------------------------------------------------
+	ObservableService(string_t path, coap_service_t& service, bool conditional_support = true):
 		updateNotificationConfirmable_(true),
 		maxAge_(COAP_DEFAULT_MAX_AGE),
 		service_(&service),
@@ -76,13 +98,21 @@ public:
 		status_(service.status())
 	{
 		service_->template add_status_listener<self_type, &self_type::set_status >( this );
+		conditional_support_ = conditional_support;
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 * Registers this service at the radio to be the first handler for messages
+	 */
 	void register_at_radio()
 	{
 		radio_reg_id_ = service_->radio()->template reg_resource_callback<self_type, &self_type::handle_request >( service_->path(), this );
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 * Handles incoming messages by extracting (conditional-)observe options and registering the sender as observer if applicable.
+	 * @param msg the incoming message to handle
+	 */
 	void handle_request(coap_message_t &msg)
 	{
 
@@ -95,7 +125,8 @@ public:
 		if ( packet.get_option(COAP_OPT_OBSERVE, observe_value) == coap_packet_t::SUCCESS ) {
 			// we got an observe request, add new observer or update token respectively
 			// and send ACK with piggybacked sensor value
-			if ( packet.template get_options< list_static<Os, OpaqueData, COAP_MAX_CONDITIONS> >(COAP_OPT_CONDITION, raw_condition_list) == coap_packet_t::SUCCESS )
+			if ( conditional_support_ &&
+					packet.template get_options< list_static<Os, OpaqueData, COAP_MAX_CONDITIONS> >(COAP_OPT_CONDITION, raw_condition_list) == coap_packet_t::SUCCESS )
 			{
 				DBG_OBS("COND_OBS: Got a Condition request!");
 				typename list_static<Os, OpaqueData, COAP_MAX_CONDITIONS>::iterator it = raw_condition_list.begin();
@@ -125,39 +156,52 @@ public:
 
 		}
 	}
-
+	// --------------------------------------------------------------------------
 	uint32_t max_age()
 	{
 		return maxAge_;
 	}
-
+	// --------------------------------------------------------------------------
 	void set_max_age(uint32_t maxAge)
 	{
 		maxAge_ = maxAge;
 	}
-
+	// --------------------------------------------------------------------------
 	bool is_update_notification_confirmable()
 	{
 		return updateNotificationConfirmable_;
 	}
-
+	// --------------------------------------------------------------------------
 	void set_update_notification_confirmable(bool updateNotificationConfirmable)
 	{
 		updateNotificationConfirmable_ = updateNotificationConfirmable;
 	}
-
-	CoapType message_type_for_notification()
+	// --------------------------------------------------------------------------
+	CoapType message_type_for_notification(observer_t observer)
 	{
-		return updateNotificationConfirmable_ ? COAP_MSG_TYPE_CON : COAP_MSG_TYPE_NON;
+		CoapType result = updateNotificationConfirmable_ ? COAP_MSG_TYPE_CON : COAP_MSG_TYPE_NON;
+		if ( conditional_support_
+				&& observer.condition_list.size() > 0)
+		{
+			// TODO reliable attribute should probably be in observer_t
+			result = observer.condition_list.front().reliable ? COAP_MSG_TYPE_CON : COAP_MSG_TYPE_NON;
+		}
+		return result;
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 * Unregisters service at radio.
+	 */
 	void shutdown()
 	{
 		// if there's a radio callback registered: unregister it
 		if ( radio_reg_id_ != -1 )
 			service_->radio().unreg_resource_callback( radio_reg_id_ );
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 * Send out a notification to all registered observers. Checks conditions if any registered.
+	 */
 	void notify_observers() {
 		observe_counter_++;
 		max_age_notifications_++;
@@ -176,7 +220,11 @@ public:
 
 		}
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 * Sets the handler to forward messages that don't contain Observe-Options.
+	 * @param callback delegate for the next message processor
+	 */
 	template <class T, void (T::*TMethod)( typename self_type::coap_message_t & ) >
 	void set_request_callback( T *callback )
 	{
@@ -196,6 +244,8 @@ private:
 	uint32_t maxAge_;
 	/** boolean indicating if acknowledgable messages should be used for observe notifications  */
 	bool updateNotificationConfirmable_;
+	/** boolean indicating if Conditional Observe Option should be supported */
+	bool conditional_support_;
 	/** vector of observing hosts including last message id and token */
 	observer_vector_t observers_;
 	// TODO what if this overflows?
@@ -205,7 +255,7 @@ private:
 	uint8_t max_age_notifications_;
 	coapreceiver_delegate_t request_callback_;
 	int radio_reg_id_;
-
+	// --------------------------------------------------------------------------
 	void schedule_max_age_notifications(void*)
 	{
 		max_age_notifications_--;
@@ -219,8 +269,8 @@ private:
 					this, 0);
 		}
 	}
-
-	/*!
+	// --------------------------------------------------------------------------
+	/**
 	 * @abstract Register a new observer, or update his token
 	 * @return  true if observer was added
 	 * @param   msg   CoAP message with observe request
@@ -263,7 +313,7 @@ private:
 			return true;
 		}
 	}
-
+	// --------------------------------------------------------------------------
 	void remove_observer(coap_message_t& msg)
 	{
 		for (observer_iterator_t it = observers_.begin();
@@ -277,13 +327,13 @@ private:
 			}
 		}
 	}
-
+	// --------------------------------------------------------------------------
 	void set_status(value_t new_status)
 	{
 		status_ = new_status;
 		notify_observers();
 	}
-
+	// --------------------------------------------------------------------------
 	coap_packet_t* send_notification(observer_t& observer,
 			bool first_notification = false)
 	{
@@ -308,7 +358,7 @@ private:
 		}
 		else
 		{
-			answer.set_type(message_type_for_notification());
+			answer.set_type(message_type_for_notification(observer));
 			sent = service_->radio()->template send_coap_gen_msg_id<self_type,
 					&self_type::got_ack>(observer.host_id, answer, this);
 		}
@@ -318,27 +368,35 @@ private:
 			observer.last_mid = sent->msg_id();
 			observer.timestamp = time();
 			observer.last_value = status_;
+		} else {
+			// can't reach observer we need to remove him
+			cout << "OBSERVE: Deleted Observer\n";
+			observers_.erase(observers_.find(observer));
+
 		}
 		return sent;
 	}
-
+	// --------------------------------------------------------------------------
 	void got_ack(coap_message_t& message)
 	{
 		// TODO why is this never getting called
 		DBG_OBS("OBSERVE: GOT ACK");
 	}
-
+	// --------------------------------------------------------------------------
 	uint32_t time()
 	{
 		return clock_->seconds(clock_->time());
 	}
-
+	// --------------------------------------------------------------------------
+	/**
+	 *
+	 */
 	template<typename V>
 	void convert(V value, message_data& payload)
 	{
 		conv<V>(value, payload);
 	}
-
+	// --------------------------------------------------------------------------
 	template<typename V>
 	void conv(uint16_t value, message_data& payload)
 	{
@@ -346,7 +404,7 @@ private:
 		payload.length = sprintf(data, "%d", value);
 		payload.data = (block_data_t*) data;
 	}
-
+	// --------------------------------------------------------------------------
 	template<typename V>
 	void conv(float value, message_data& payload)
 	{
@@ -354,12 +412,19 @@ private:
 		payload.length = sprintf(data, "%f", value);
 		payload.data = (block_data_t*) data;
 	}
-
+	// --------------------------------------------------------------------------
 	template<typename V>
 	void conv(string_t value, message_data& payload)
 	{
 		payload.length = value.length();
 		payload.data = (block_data_t*) value.c_str();
+	}
+	// --------------------------------------------------------------------------
+	template<typename V>
+	void conv(const char* value, message_data& payload)
+	{
+		payload.length = strlen(value);
+		payload.data = (block_data_t*) value;
 	}
 
 };
