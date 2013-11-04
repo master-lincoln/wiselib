@@ -17,8 +17,8 @@
  ** If not, see <http://www.gnu.org/licenses/>.                           **
  ***************************************************************************/
 
-#ifndef UTIL_H_
-#define UTIL_H_
+#ifndef COAP_UTIL_H_
+#define COAP_UTIL_H_
 
 namespace wiselib {
 
@@ -61,4 +61,4 @@ int path_cmp(const string_t &lhs, const string_t &rhs)
 
 
 
-#endif /* UTIL_H_ */
+#endif /* COAP_UTIL_H_ */

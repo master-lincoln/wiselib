@@ -154,12 +154,15 @@ public:
 	typedef vector_static<Os, coap_service_t*, COAP_MAX_STATE_RESOURCES> state_resources_services_vector_t;
 
 	// --------------------------------------------------------------------------
-	HLStatesService(coap_service_t& service, value_t start_value = NULL) :
-		num_(start_value),
-		status_(num_),
-		service_(&service),
+	HLStatesService() :
 		radio_reg_id_(-1)
+	{	}
+	// --------------------------------------------------------------------------
+	void init(coap_service_t& service, value_t start_value = NULL)
 	{
+		num_ = start_value;
+		status_ = num_;
+		service_ = &service;
 		rand_->srand( service_->radio()->id() );
 	}
 	// --------------------------------------------------------------------------
@@ -231,7 +234,7 @@ public:
 		if ( packet.get_option(COAP_OPT_HL_STATE, hl_data) == coap_packet_t::SUCCESS )
 		{
 
-			state_resource_t* resource;
+			state_resource_t* resource = NULL;
 			if ( packet.uri_path() != service_->path() )
 			{
 				resource = find_state_resource( packet.uri_path() );
@@ -318,8 +321,8 @@ public:
 			for(; it != hl_list.end(); ++it)
 			{
 				OpaqueData hl_data = (*it);
-				uint8_t * option = hl_data.value();
-				uint8_t type = option[0];
+				//uint8_t * option = hl_data.value();
+				//uint8_t type = option[0];
 
 				number_state<value_t> state = create_state_from_option(*it);
 				if ( strcmp(state.name, "undefined") )

@@ -53,13 +53,18 @@ public:
 
 	~CoapService() { }
 
-	CoapService(string_t path, Radio& radio) :
-		path_(path),
-		radio_(&radio),
+	CoapService() :
 		handle_subresources_(false),
 		request_callback_(coapreceiver_delegate_t()),
 		radio_reg_id_(0)
 	{
+
+	}
+
+	void init(string_t path, Radio& radio)
+	{
+		path_ = path;
+		radio_ = &radio;
 
 	}
 

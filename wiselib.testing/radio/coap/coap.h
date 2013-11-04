@@ -22,6 +22,8 @@
 
 #include "external_interface/external_interface.h"
 #include "util/serialization/simple_types.h"
+#include "util/pstl/static_string.h"
+
 using namespace std;
 
 // Config Tweaks
@@ -242,7 +244,7 @@ namespace wiselib
 	typedef uint16_t coap_msg_id_t;
 	// Size of tokens sent by coapradio.h. This does not affect what size tokens coapradio can receive/process!
 	typedef uint32_t coap_token_t;
-
+	typedef OSMODEL::size_t size_t;
 
 	class OpaqueData
 	{
