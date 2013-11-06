@@ -30,7 +30,7 @@ public:
 	ObsTest(string_t path, Radio& radio) :
 		num_(100)
 	{
-		coap_service_ = new CoapService<Os, Radio, string_t, uint16_t>("observe", radio);
+		coap_service_->init("observe", radio);
 		coap_service_->set_handle_subresources(false);
 		coap_service_->template set_request_callback<self_type, &self_type::handle_request>(this);
 

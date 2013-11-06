@@ -8,7 +8,7 @@ CXX=clang++-3.3
 LD=ld
 CXXFLAGS+=-I$(WISELIB_STABLE) -I$(WISELIB_TESTING) -Os -fdiagnostics-show-template-tree
 #-fno-elide-type
-LDFLAGS+= -lpthread -lrt 
+LDFLAGS+= -lpthread -lrt -DOSMODEL=PCOsModel
 
 $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)

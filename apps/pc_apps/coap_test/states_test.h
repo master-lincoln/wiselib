@@ -30,27 +30,28 @@ public:
 
 
 	// --------------------------------------------------------------------------
-	StatesTest(string_t path, Radio& radio, typename Os::Timer* timer) :
-		num_(1),
-		timer_(timer)
+	StatesTest() :
+		num_(1)
+	{	}
+	// --------------------------------------------------------------------------
+	void init(string_t path, Radio& radio, typename Os::Timer::self_pointer_t timer)
 	{
-		coap_service_ = new CoapService<Os, Radio, string_t, value_t>("states", radio);
-		coap_service_->set_handle_subresources(true);
-		coap_service_->template set_request_callback<self_type, &self_type::handle_request>(this);
+		timer_ = timer;
+		coap_service_.init("states", radio);
+		coap_service_.set_handle_subresources(true);
+		coap_service_.template set_request_callback<self_type, &self_type::handle_request>(this);
 
-		hls_service_ = new HLStatesService<Os, Radio, string_t, value_t>(*coap_service_);
-		hls_service_->template set_request_callback<coap_service_t, &coap_service_t::handle_request>(coap_service_);
-		hls_service_->register_at_radio();
-
+		hls_service_.init(coap_service_);
+		hls_service_.template set_request_callback<coap_service_t, &coap_service_t::handle_request>(&coap_service_);
+		hls_service_.register_at_radio();
 
 		timer_->template set_timer<self_type, &self_type::gen_number>(STATES_TEST_INTERVAL, this, 0);
-
 	}
 	// --------------------------------------------------------------------------
 	void gen_number(void*)
 	{
 		num_ = (++num_);// % 1000;
-		coap_service_->set_status(num_);
+		coap_service_.set_status(num_);
 		timer_->template set_timer<self_type, &self_type::gen_number>(STATES_TEST_INTERVAL, this, 0);
 	}
 	// --------------------------------------------------------------------------
@@ -62,18 +63,18 @@ public:
 			case COAP_CODE_GET:
 				{
 					char buffer[3];
-					int val_len = sprintf( buffer, "%d", coap_service_->status() );
-					coap_service_->radio()->reply( msg, (uint8_t *) buffer, val_len );
+					int val_len = sprintf( buffer, "%d", coap_service_.status() );
+					coap_service_.radio()->reply( msg, (uint8_t *) buffer, val_len );
 				}
 				break;
 			case COAP_CODE_POST:
-				cout << "POST Request\n";
+				//cout << "POST Request\n";
 				break;
 			case COAP_CODE_PUT:
-				cout << "PUT Request\n";
+				//cout << "PUT Request\n";
 				break;
 			case COAP_CODE_DELETE:
-				cout << "DELETE Request\n";
+				//cout << "DELETE Request\n";
 				break;
 			default:
 				break;
@@ -81,11 +82,10 @@ public:
 	}
 
 private:
-	Timer *timer_;
+	typename Timer::self_pointer_t timer_;
 	value_t num_;
-	coap_service_t* coap_service_;
-	hls_service_t* hls_service_;
-
+	coap_service_t coap_service_;
+	hls_service_t hls_service_;
 
 };
 

@@ -89,10 +89,11 @@ int main(int argc, char** argv) {
 	// 			Registering Services
 	// --------------------------------------------------------------------------
 
-	ObsTest<Os, coap_radio_t, string_t> obs = ObsTest<Os, coap_radio_t, string_t>("observe", cradio_);
+	//ObsTest<Os, coap_radio_t, string_t> obs = ObsTest<Os, coap_radio_t, string_t>("observe", cradio_);
 	FixedStringResource<coap_radio_t> observe_help = FixedStringResource<coap_radio_t>(cradio_, "observe/help", "This is a Test");
 
-	StatesTest<Os, coap_radio_t, string_t> states = StatesTest<Os, coap_radio_t, string_t>("states", cradio_, timer_);
+	StatesTest<Os, coap_radio_t, string_t> states;
+	states.init("states", cradio_, timer_);
 
 
 	ToUpperCase<coap_radio_t> uppercaser = ToUpperCase<coap_radio_t>();
