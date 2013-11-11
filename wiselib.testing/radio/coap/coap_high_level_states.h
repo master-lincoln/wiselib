@@ -56,13 +56,14 @@ struct number_state
 	T upper_bound;
 	const char* name;
 
-	char* to_json();
+	void to_json(char* string);
 	bool contains(T sensor_value)
 	{
 		return sensor_value >= lower_bound && sensor_value < upper_bound;
 	}
 };
 // --------------------------------------------------------------------------
+/*
 template<>
 struct number_state<const char*>
 {
@@ -90,6 +91,7 @@ struct number_state<const char*>
 		return result;
 	}
 };
+*/
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
 struct number_state_resource
@@ -98,7 +100,7 @@ struct number_state_resource
 	const char* path;
 	vector_static<Os_Model, number_state<T>, COAP_MAX_HL_STATES> states;
 
-	char* to_json();
+	void to_json(char* string);
 	const char* get_state(T sensor_value);
 	int get_state_number(T sensor_value);
 };
@@ -131,10 +133,10 @@ int number_state_resource<Os_Model, T >::get_state_number(T sensor_value)
 }
 // --------------------------------------------------------------------------
 template<typename Os_Model, typename T>
-char* number_state_resource<Os_Model, T>::to_json()
+void number_state_resource<Os_Model, T>::to_json(char* result)
 {
-	uint16_t size = 32 * states.size() + 23 + 64;
-	char* result = new char[size];
+	//uint16_t size = 32 * states.size() + 23 + 64;
+	//char* result = new char[size];
 	char p[5] = "{p:'";
 	char n[9] = "', num:[";
 	char c[3] = "]}";
@@ -145,17 +147,15 @@ char* number_state_resource<Os_Model, T>::to_json()
 
 	for (size_t i=0; i<states.size(); i++)
 	{
-		char* json = states.at(i).to_json();
-		strcat(result, json);
+		states.at(i).to_json(result);
 	}
 	strcat(result, c);
-
-	return result;
 }
 // --------------------------------------------------------------------------
 template<>
-char* number_state<uint16_t>::to_json() {
-	char* result = new char[32];
+void number_state<uint16_t>::to_json(char* result) {
+
+	//char* result = new char[32];
 	char l[4] = "{l:";
 	char h[4] = ",h:";
 	char s[5] = ",s:'";
@@ -175,12 +175,11 @@ char* number_state<uint16_t>::to_json() {
 	strcat(result, name);
 	strcat(result, c);
 
-	return result;
 }
 // --------------------------------------------------------------------------
 template<>
-char* number_state<float>::to_json() {
-	char* result = new char[32];
+void number_state<float>::to_json(char* result) {
+	//char* result = new char[32];
 	char l[4] = "{l:";
 	char h[4] = ",h:";
 	char s[5] = ",s:'";
@@ -200,7 +199,6 @@ char* number_state<float>::to_json() {
 	strcat(result, name);
 	strcat(result, c);
 
-	return result;
 }
 
 }

@@ -65,11 +65,11 @@ namespace specialized
 
 		// TODO how to parse string without length? Possible error in specification!
 		char* value = (char*) option+1;
-		char* value_copy = new char[128];
+		char value_copy[128];
 		memcpy(value_copy, value, 128);
 
 		char* name = (char*) option+129;
-		char* name_copy = new char[128];
+		char name_copy[128];
 		memcpy(name_copy, name, 128);
 
 		//DBG_HLS("Created integer state:\"%s\" lower: %d upper: %d \n", name, lower, upper);
@@ -93,11 +93,18 @@ namespace specialized
 		uint16_t lower = 0 | (option[1]<<8) | option[2];
 		uint16_t upper = 0 | (option[3]<<8) | option[4];
 
+		// get name
 		char* name = (char*) option+5;
-		char* name_copy = new char[hl_data.length()-5+1];
-		memcpy(name_copy, name, hl_data.length()-5);
+		uint16_t name_len = strlen(name);
+		// copy
+		char* name_copy;
+		// TODO malloc sucks here...but how else?
+		name_copy = (char*) malloc (COAP_OPT_MAXLEN_OPAQUE);
+		memcpy(name_copy, name, name_len);
+		//set last char to null
+		name_copy[name_len] = '\0';
 
-		//DBG_HLS("Created integer state:\"%s\" lower: %d upper: %d \n", name, lower, upper);
+		//printf("Created integer state:\"%s\" lower: %d upper: %d \n", name_copy, lower, upper);
 		number_state<uint16_t> state = {lower,upper,name_copy};
 		return state;
 	}
@@ -119,7 +126,7 @@ namespace specialized
 		float lower = (float) (0 | (option[1]<<8) | option[2]);
 		float upper = (float) (0 | (option[3]<<8) | option[4]);
 		char* name = (char*) option+5;
-		char* name_copy = new char[hl_data.length()-5+1];
+		char name_copy[COAP_OPT_MAXLEN_OPAQUE];
 		memcpy(name_copy, name, hl_data.length()-5);
 
 		//DBG_HLS("Created float state:\"%s\" lower: %f upper: %f \n",name, lower, upper);
@@ -221,6 +228,7 @@ public:
 			if ( resource != NULL )
 			{
 				DBG_HLS("DELETE Request\n");
+				// TODO delete state_resouce from list and do "free(state.name)" for all states
 				service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_DELETED );
 			}
 		}
@@ -257,10 +265,11 @@ public:
 					DBG_HLS("Aksing for Number");
 					break;
 				case HighLevelQueryType::STATE_DESCRIPTION:
-					char* json;
+					// 32 * states.size() + 23 + 64
+					char json[32 * COAP_MAX_HL_STATES + 23 + 64];
 					if ( packet.uri_path() == service_->path() )
 					{
-						json = resources_to_json();
+						resources_to_json(json);
 					}
 					else
 					{
@@ -280,7 +289,7 @@ public:
 						}
 						else
 						{
-							json = resource->to_json();
+							resource->to_json(json);
 						}
 
 					}
@@ -325,9 +334,9 @@ public:
 				//uint8_t type = option[0];
 
 				number_state<value_t> state = create_state_from_option(*it);
-				if ( strcmp(state.name, "undefined") )
+				if ( strcmp(state.name, "undefined") == 0 )
 				{
-					// Types don't match...send 4.02
+					DBG_HLS("The name 'undefined' is not allowed!");
 					service_->radio()->reply( msg, (uint8_t*) 0, 0, COAP_CODE_BAD_OPTION );
 					return;
 				}
@@ -350,28 +359,26 @@ public:
 	 * 			format
 	 * @return a char array (max length 1024bytes) containing the JSON
 	 */
-	char* resources_to_json()
+	void resources_to_json(char* string)
 	{
 		string_t delim = ",";
 		string_t res = "{res:{r:[";
 		string_t footer = "]}}";
-		char* buffer = new char[1024];
 
-		strcpy(buffer, res.c_str());
+		strcpy(string, res.c_str());
 
 		for ( size_t i=0; i<state_resources_.size(); i++)
 		{
-			string_t json = string_t(state_resources_.at(i).to_json());
-			strcat(buffer, json.c_str());
+			char json[32 * COAP_MAX_HL_STATES + 23 + 64];
+			state_resources_.at(i).to_json(json);
+			strcat(string, json);
 
 			if ( i < (state_resources_.size()-1) )
 			{
-				strcat(buffer, delim.c_str());
+				strcat(string, delim.c_str());
 			}
 		}
-		strcat(buffer, footer.c_str());
-
-		return buffer;
+		strcat(string, footer.c_str());
 	}
 	// --------------------------------------------------------------------------
 	void set_status(value_t newStatus)
@@ -421,9 +428,10 @@ private:
 	 * @param len length of random string
 	 * @return Null terminated char array containing the generated string
 	 */
-	char * gen_random(const size_t len)
+	const char* gen_random(const size_t len)
 	{
-		char* s = new char[len+1];
+
+		char* s = (char*) malloc(len+1);
 		static const char alphanum[] =
 			"0123456789"
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -436,6 +444,7 @@ private:
 		}
 
 		s[len] = 0;
+
 		return s;
 	}
 	// --------------------------------------------------------------------------

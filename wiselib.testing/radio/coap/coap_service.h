@@ -157,8 +157,8 @@ public:
 	}
 
 private:
-	Radio *radio_;
-	Debug *debug_;
+	typename Radio::self_pointer_t radio_;
+	typename Debug::self_pointer_t debug_;
 	value_t status_;
 	string_t path_;
 	int radio_reg_id_;
